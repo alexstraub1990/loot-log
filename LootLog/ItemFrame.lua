@@ -2,8 +2,8 @@
 -- Create a frame designed for showing items in a scrollable list.
 -- 
 -- A list of items to show can be set via the <return>::SetItems(items) method,
--- where items is a set of {id, name, quality}, and can be cleared by calling
--- <return>::ClearItems().
+-- where items is a set of {id, name, quality}, can be cleared by calling
+-- <return>::ClearItems(), and their number is returned from GetNumItems().
 -- 
 -- The height of the frame is not set directly, but derived from the number of
 -- frames and their individual height. The actual size of the frame is constant
@@ -40,7 +40,7 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
     ItemFrame.scroll_pos = 1 -- scrolling position within the list
 
     -- initialize item frame
-    function initialize()
+    local function initialize()
         -- set frame size
         ItemFrame:SetWidth(ItemFrame.frame_width)
         ItemFrame:SetHeight(ItemFrame.num_item_frames * ItemFrame.item_height)
@@ -86,7 +86,7 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
     initialize()
     
     -- implement scrolling of the frame triggered by the up- and down-buttons
-    function scroll(direction)
+    local function scroll(direction)
         ItemFrame.scroll_pos = ItemFrame.scroll_pos + direction
         
         if (ItemFrame.scroll_pos < 1) then
@@ -132,6 +132,11 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
     -- calculate frame size and return it -> {width, height}
     function ItemFrame:GetFrameSize()
         return ItemFrame.frame_width, ItemFrame.num_item_frames * ItemFrame.item_height
+    end
+
+    -- number of items currently in the list
+    function ItemFrame:GetNumItems()
+        return #ItemFrame.items
     end
 
     -- clear all items
