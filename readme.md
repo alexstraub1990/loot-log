@@ -6,6 +6,10 @@ Yet another loot tracker, this addon provides a simple method to track and filte
 
 
 
+To open the main window, you can type "/ll" or "/lootlog" in the chat, or use the minimap button.
+
+
+
 ## Basic functionality
 
 The addon simply responds to loot events near your character. This means that everything you loot, or anybody in your group or raid loot near you, will be stored in a log window.
