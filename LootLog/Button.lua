@@ -1,6 +1,6 @@
 -- --------------------------------------------------------------------------------
 -- Create a simple button with custom text.
--- 
+--
 -- Parameters:
 --   name               Global name of the frame
 --   parent             Parent frame object for placement within other frames
@@ -21,7 +21,7 @@ function CreateButton(name, parent, text, width, height, click_callback)
     ntex = button:CreateTexture()
     ntex:SetTexture("Interface/Buttons/UI-Panel-Button-Up")
     ntex:SetTexCoord(0, 0.625, 0, 0.6875)
-    ntex:SetAllPoints()	
+    ntex:SetAllPoints()
     button:SetNormalTexture(ntex)
 
     htex = button:CreateTexture()
@@ -35,10 +35,10 @@ function CreateButton(name, parent, text, width, height, click_callback)
     ptex:SetTexCoord(0, 0.625, 0, 0.6875)
     ptex:SetAllPoints()
     button:SetPushedTexture(ptex)
-    
+
     if (click_callback ~= nil) then
         button:SetScript("OnClick", click_callback)
     end
-    
+
     return button
 end
