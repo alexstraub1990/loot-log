@@ -1,0 +1,12 @@
+## Interface: 30400
+## Title: Loot Log
+## Notes: Logs looted items of certain quality in raids.
+## Version: 1.0
+## SavedVariables: LootLog_minimap
+## SavedVariablesPerCharacter: LootLog_looted_items, LootLog_frame_visible, LootLog_min_quality
+
+LibDBIcon-1.0\embeds.xml
+LibDBIcon-1.0\LibDBIcon-1.0\lib.xml
+ItemFrame.lua
+Button.lua
+LootLog.lua
