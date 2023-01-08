@@ -8,6 +8,13 @@ local loot_frame = CreateFrame("Frame", "LootLogFrame", UIParent)
 local settings_frame = CreateFrame("Frame", "LootLogSettings", UIParent)
 local settings_frame_visible = false
 
+-- special frames
+local scan_frame = CreateFrame("GameTooltip", "LootLogScanTooltip", nil, "GameTooltipTemplate")
+scan_frame:SetOwner(WorldFrame, "ANCHOR_NONE")
+scan_frame:AddFontStrings(
+    scan_frame:CreateFontString("$parentTextLeft1", nil, "GameTooltipText"),
+    scan_frame:CreateFontString("$parentTextRight1", nil, "GameTooltipText"));
+
 -- settings
 local qualities = {"Poor", "Common", "Uncommon", "Rare", "Epic", "Legendary"}
 
@@ -34,12 +41,35 @@ local update_list = function()
         item.name = item_info[2]
         item.quality = item_info[3]
 
-        -- TODO: filter by quality, equipability, maybe stats?
         discard = false
         keep = true
 
+        -- filter by item quality
         if (item.quality < LootLog_min_quality) then discard = true end
 
+        -- filter by equippability (hack: scan tooltip for red text color; might break if other addons modify the tooltip)
+        scan_frame:ClearLines()
+        scan_frame:SetItemByID(item.id)
+
+        local function scan_tooltip(...)
+            for i = 1, select("#", ...) do
+                local region = select(i, ...)
+
+                if region and region:GetObjectType() == "FontString" then
+                    r, g, b, _ = region:GetTextColor()
+
+                    if (region:GetText() and r > 0.9999 and g > 0.125 and g < 0.126 and b > 0.125 and b < 0.126) then
+                        return false
+                    end
+                end
+            end
+
+            return true
+        end
+
+        discard = discard or (LootLog_equippable and not (IsEquippableItem(item.id) and scan_tooltip(scan_frame:GetRegions())))
+
+        -- filter by filter list
         if (LootLog_use_filter_list) then
             keep = false
 
@@ -133,6 +163,10 @@ local event_addon_loaded = function(self, event, addon)
             LootLog_min_quality = 4
         end
 
+        if LootLog_equippable == nil then
+            LootLog_equippable = false
+        end
+
         if LootLog_open_on_loot == nil then
             LootLog_open_on_loot = false
         end
@@ -167,6 +201,7 @@ local event_addon_loaded = function(self, event, addon)
         -- initialize settings
         UIDropDownMenu_SetText(settings_frame.quality_options, qualities[LootLog_min_quality + 1])
 
+        settings_frame.equippable:SetChecked(LootLog_equippable)
         settings_frame.auto_open:SetChecked(LootLog_open_on_loot)
         settings_frame.use_filter:SetChecked(LootLog_use_filter_list)
 
@@ -234,7 +269,7 @@ event_add_item = function(item_id)
     end
 end
 
--- create events
+-- special frames
 local event_load_frame = CreateFrame("Frame")
 event_load_frame:RegisterEvent("ADDON_LOADED")
 event_load_frame:SetScript("OnEvent", event_addon_loaded)
@@ -252,7 +287,7 @@ local init = function()
     loot_frame:SetFrameStrata("MEDIUM")
     loot_frame:SetWidth(window_width)
     loot_frame:SetHeight(80 + select(2, item_frame:GetFrameSize()))
-    loot_frame:SetPoint("TOPLEFT", 0, 0)
+    loot_frame:SetPoint("CENTER", 0, 0)
     loot_frame:SetMovable(true)
     loot_frame:EnableMouse(true)
     loot_frame:RegisterForDrag("LeftButton")
@@ -298,8 +333,8 @@ local init = function()
     -- initialize settings window
     settings_frame:SetFrameStrata("HIGH")
     settings_frame:SetWidth(250)
-    settings_frame:SetHeight(145 + select(2, filter_frame:GetFrameSize()))
-    settings_frame:SetPoint("TOPRIGHT", 0, 0)
+    settings_frame:SetHeight(170 + select(2, filter_frame:GetFrameSize()))
+    settings_frame:SetPoint("CENTER", 150, 0)
     settings_frame:SetMovable(true)
     settings_frame:EnableMouse(true)
     settings_frame:RegisterForDrag("LeftButton")
@@ -316,12 +351,14 @@ local init = function()
     settings_frame.title:SetText("Loot Log — Settings")
 
     -- filter by quality
+    local quality_y = -30
+
     settings_frame.quality_label = settings_frame:CreateFontString("LootLogQualityLabel", "OVERLAY", "GameFontHighlight")
-    settings_frame.quality_label:SetPoint("TOPLEFT", 10, -37)
+    settings_frame.quality_label:SetPoint("TOPLEFT", 10, quality_y - 7)
     settings_frame.quality_label:SetText("Min. quality")
 
     settings_frame.quality_options = CreateFrame("Frame", "LootLogQualityLabel", settings_frame, "UIDropDownMenuTemplate")
-    settings_frame.quality_options:SetPoint("TOPRIGHT", 5, -30)
+    settings_frame.quality_options:SetPoint("TOPRIGHT", 10, -30)
 
     UIDropDownMenu_SetWidth(settings_frame.quality_options, 100)
     UIDropDownMenu_Initialize(settings_frame.quality_options,
@@ -348,28 +385,44 @@ local init = function()
             UIDropDownMenu_AddButton(info)
         end)
 
+    -- option to show only equippable loot
+    local equippable_y = -60
+
+    settings_frame.equippable_label = settings_frame:CreateFontString("LootLogEquippableLabel", "OVERLAY", "GameFontHighlight")
+    settings_frame.equippable_label:SetPoint("TOPLEFT", 10, equippable_y - 7)
+    settings_frame.equippable_label:SetText("Equippable items only (unsafe)")
+
+    settings_frame.equippable = CreateFrame("CheckButton", "LootLogEquippableCheckbox", settings_frame, "UICheckButtonTemplate")
+    settings_frame.equippable:SetSize(25, 25)
+    settings_frame.equippable:SetPoint("TOPRIGHT", -8, equippable_y)
+    settings_frame.equippable:HookScript("OnClick", function(self, button, ...) LootLog_equippable = settings_frame.equippable:GetChecked(); update_list() end)
+
     -- option to open frame automatically on new loot
+    local auto_open_y = -83
+
     settings_frame.auto_open_label = settings_frame:CreateFontString("LootLogAutoOpenLabel", "OVERLAY", "GameFontHighlight")
-    settings_frame.auto_open_label:SetPoint("TOPLEFT", 10, -67)
+    settings_frame.auto_open_label:SetPoint("TOPLEFT", 10, auto_open_y - 7)
     settings_frame.auto_open_label:SetText("Open on new loot")
 
     settings_frame.auto_open = CreateFrame("CheckButton", "LootLogAutoOpenCheckbox", settings_frame, "UICheckButtonTemplate")
     settings_frame.auto_open:SetSize(25, 25)
-    settings_frame.auto_open:SetPoint("TOPRIGHT", -8, -60)
+    settings_frame.auto_open:SetPoint("TOPRIGHT", -8, auto_open_y)
     settings_frame.auto_open:HookScript("OnClick", function(self, button, ...) LootLog_open_on_loot = settings_frame.auto_open:GetChecked() end)
 
     -- option to add only items to the loot list that are in the following priority list
+    local filter_y = -106
+
     settings_frame.use_filter_label = settings_frame:CreateFontString("LootLogFilterLabel", "OVERLAY", "GameFontHighlight")
-    settings_frame.use_filter_label:SetPoint("TOPLEFT", 10, -90)
+    settings_frame.use_filter_label:SetPoint("TOPLEFT", 10, filter_y - 7)
     settings_frame.use_filter_label:SetText("Show only items listed below")
 
     settings_frame.use_filter = CreateFrame("CheckButton", "LootLogFilterCheckbox", settings_frame, "UICheckButtonTemplate")
     settings_frame.use_filter:SetSize(25, 25)
-    settings_frame.use_filter:SetPoint("TOPRIGHT", -8, -83)
+    settings_frame.use_filter:SetPoint("TOPRIGHT", -8, filter_y)
     settings_frame.use_filter:HookScript("OnClick", function(self, button, ...) LootLog_use_filter_list = settings_frame.use_filter:GetChecked(); update_list() end)
 
     settings_frame.filter = filter_frame
-    settings_frame.filter:SetPoint("TOPLEFT", 5, -115)
+    settings_frame.filter:SetPoint("TOPLEFT", 5, filter_y - 32)
 
     settings_frame.item_id = CreateFrame("EditBox", "LootLogFilterItem", settings_frame)
     settings_frame.item_id:SetSize(80, 22)
