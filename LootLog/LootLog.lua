@@ -9,11 +9,16 @@ local settings_frame = CreateFrame("Frame", "LootLogSettings", UIParent)
 local settings_frame_visible = false
 
 -- special frames
+local event_cache_frame = CreateFrame("Frame")
+
 local scan_frame = CreateFrame("GameTooltip", "LootLogScanTooltip", nil, "GameTooltipTemplate")
 scan_frame:SetOwner(WorldFrame, "ANCHOR_NONE")
 scan_frame:AddFontStrings(
     scan_frame:CreateFontString("$parentTextLeft1", nil, "GameTooltipText"),
     scan_frame:CreateFontString("$parentTextRight1", nil, "GameTooltipText"));
+
+-- temporary storage
+local item_queue = {}
 
 -- settings
 local qualities = {"Poor", "Common", "Uncommon", "Rare", "Epic", "Legendary"}
@@ -240,6 +245,8 @@ end
 
 -- handle adding and item to the filter list
 local event_add_item
+local event_cache
+
 event_add_item = function(item_id)
     if (not C_Item.DoesItemExistByID(item_id)) then
         return
@@ -249,7 +256,12 @@ event_add_item = function(item_id)
     item_quality = C_Item.GetItemQualityByID(item_id)
 
     if (item_name == nil) then
-        event_add_item(item_id)
+        GetItemInfo(item_id)
+
+        table.insert(item_queue, item_id)
+
+        event_cache_frame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+        event_cache_frame:SetScript("OnEvent", event_cache)
 
         return
     end
@@ -266,6 +278,16 @@ event_add_item = function(item_id)
 
         update_filter()
         update_list()
+    end
+end
+
+event_cache = function(self, event, item_id, success)
+    for i = 1, #item_queue, 1 do
+        if (tonumber(item_queue[i]) == item_id) then
+            table.remove(item_queue, i)
+
+            if (success) then event_add_item(item_id) end
+        end
     end
 end
 
@@ -390,7 +412,7 @@ local init = function()
 
     settings_frame.equippable_label = settings_frame:CreateFontString("LootLogEquippableLabel", "OVERLAY", "GameFontHighlight")
     settings_frame.equippable_label:SetPoint("TOPLEFT", 10, equippable_y - 7)
-    settings_frame.equippable_label:SetText("Equippable items only (unsafe)")
+    settings_frame.equippable_label:SetText("Equippable items only (experim.)")
 
     settings_frame.equippable = CreateFrame("CheckButton", "LootLogEquippableCheckbox", settings_frame, "UICheckButtonTemplate")
     settings_frame.equippable:SetSize(25, 25)
@@ -430,7 +452,7 @@ local init = function()
     settings_frame.item_id:SetFontObject(ChatFontNormal)
     settings_frame.item_id:SetAutoFocus(false)
     settings_frame.item_id:SetNumeric(true)
-    settings_frame.item_id:SetScript("OnEnterPressed", function(self, ...) event_add_item(settings_frame.item_id:GetText()); settings_frame.item_id:SetText("") end)
+    settings_frame.item_id:SetScript("OnEnterPressed", function(self, ...) event_add_item(settings_frame.item_id:GetText()); settings_frame.item_id:ClearFocus(); settings_frame.item_id:SetText("") end)
     settings_frame.item_id:SetScript("OnEscapePressed", function(self, ...) settings_frame.item_id:ClearFocus(); settings_frame.item_id:SetText("") end)
 
     settings_frame.item_id.background = settings_frame.item_id:CreateTexture()
