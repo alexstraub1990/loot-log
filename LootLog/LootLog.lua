@@ -52,7 +52,7 @@ local update_list = function()
         -- filter by item quality
         if (item.quality < LootLog_min_quality) then discard = true end
 
-        -- filter by equippability (hack: scan tooltip for red text color; might break if other addons modify the tooltip)
+        -- filter by equippability (hack! scan tooltip for red text color; might break if other addons modify the tooltip)
         scan_frame:ClearLines()
         scan_frame:SetItemByID(item.id)
 
@@ -61,9 +61,10 @@ local update_list = function()
                 local region = select(i, ...)
 
                 if region and region:GetObjectType() == "FontString" then
-                    r, g, b, _ = region:GetTextColor()
+                    text = region:GetText()
+                    r, g, b = region:GetTextColor()
 
-                    if (region:GetText() and r > 0.9999 and g > 0.125 and g < 0.126 and b > 0.125 and b < 0.126) then
+                    if (text and r > 0.9 and g < 0.2 and b < 0.2) then
                         return false
                     end
                 end
@@ -325,6 +326,10 @@ local init = function()
     loot_frame.title:SetPoint("TOPLEFT", 5, -5)
     loot_frame.title:SetText("Loot Log")
 
+    loot_frame.close = CreateFrame("Button", "LootLogSettingsClose", loot_frame, "UIPanelCloseButton")
+    loot_frame.close:SetPoint("TOPRIGHT", 0, 2)
+    loot_frame.close:SetScript("OnClick", function(_, button) if (button == "LeftButton") then LootLog_frame_visible = false; loot_frame:Hide() end end)
+
     loot_frame.field = item_frame
     loot_frame.field:SetPoint("TOPLEFT", 5, -25)
 
@@ -371,6 +376,10 @@ local init = function()
     settings_frame.title = settings_frame:CreateFontString("LootLogSettingsTitle", "OVERLAY", "GameFontNormal")
     settings_frame.title:SetPoint("TOPLEFT", 5, -5)
     settings_frame.title:SetText("Loot Log — Settings")
+
+    settings_frame.close = CreateFrame("Button", "LootLogSettingsClose", settings_frame, "UIPanelCloseButton")
+    settings_frame.close:SetPoint("TOPRIGHT", 0, 2)
+    settings_frame.close:SetScript("OnClick", function(_, button) if (button == "LeftButton") then settings_frame_visible = false; settings_frame:Hide() end end)
 
     -- filter by quality
     local quality_y = -30
