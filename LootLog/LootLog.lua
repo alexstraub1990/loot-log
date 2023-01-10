@@ -20,11 +20,8 @@ scan_frame:AddFontStrings(
 -- temporary storage
 local item_queue = {}
 
--- settings
-local qualities = {"Poor", "Common", "Uncommon", "Rare", "Epic", "Legendary"}
-
 -- toggle gui visibility
-local toggle_visibility = function(self, _)
+local toggle_visibility = function()
     if (LootLog_frame_visible) then
         loot_frame:Hide()
         LootLog_frame_visible = false
@@ -120,9 +117,7 @@ end
 
 -- handle click on an item
 local event_click_item = function(mouse_key, item_id)
-    if (mouse_key == "LeftButton") then
-        -- TODO: maybe lock the item?
-    elseif (mouse_key == "RightButton") then
+    if (mouse_key == "RightButton") then
         for i, item_info in ipairs(LootLog_looted_items) do
             if (item_info[1] == item_id) then
                 table.remove(LootLog_looted_items, i)
@@ -135,9 +130,7 @@ end
 
 -- handle click on an item in the filter list
 local event_click_filter = function(mouse_key, item_id)
-    if (mouse_key == "LeftButton") then
-        -- TODO: maybe lock the item?
-    elseif (mouse_key == "RightButton") then
+    if (mouse_key == "RightButton") then
         for i, item_info in ipairs(LootLog_filter_list) do
             if (item_info[1] == item_id) then
                 table.remove(LootLog_filter_list, i)
@@ -150,7 +143,7 @@ local event_click_filter = function(mouse_key, item_id)
 end
 
 -- load stored values
-local event_addon_loaded = function(self, event, addon)
+local event_addon_loaded = function(_, _, addon)
     if addon == "LootLog" then
         if LootLog_looted_items == nil then
             LootLog_looted_items = {}
@@ -197,7 +190,7 @@ local event_addon_loaded = function(self, event, addon)
             type = "data source",
             text = "Loot Log",
             icon = "Interface\\HELPFRAME\\HelpIcon-KnowledgeBase",
-            OnClick = function(self, _) toggle_visibility(self, nil) end,
+            OnClick = function() toggle_visibility() end,
             OnTooltipShow = function(tooltip) if not tooltip or not tooltip.AddLine then return end; tooltip:AddLine("Loot Log") end,
         })
 
@@ -205,7 +198,7 @@ local event_addon_loaded = function(self, event, addon)
         icon:Register("LootLog", miniButton, LootLog_minimap)
 
         -- initialize settings
-        UIDropDownMenu_SetText(settings_frame.quality_options, qualities[LootLog_min_quality + 1])
+        UIDropDownMenu_SetText(settings_frame.quality_options, LootLog_Locale.qualities[LootLog_min_quality + 1])
 
         settings_frame.equippable:SetChecked(LootLog_equippable)
         settings_frame.auto_open:SetChecked(LootLog_open_on_loot)
@@ -218,7 +211,7 @@ local event_addon_loaded = function(self, event, addon)
 end
 
 -- main function for parsing loot messages
-local event_looted = function(self, event, text, ...)
+local event_looted = function(_, _, text)
     -- parse item information
     _, item_id_start = string.find(text, "|Hitem:")
     text = string.sub(text, item_id_start + 1, -1)
@@ -324,7 +317,7 @@ local init = function()
 
     loot_frame.title = loot_frame:CreateFontString("LootLogTitle", "OVERLAY", "GameFontNormal")
     loot_frame.title:SetPoint("TOPLEFT", 5, -5)
-    loot_frame.title:SetText("Loot Log")
+    loot_frame.title:SetText(LootLog_Locale.title)
 
     loot_frame.close = CreateFrame("Button", "LootLogSettingsClose", loot_frame, "UIPanelCloseButton")
     loot_frame.close:SetPoint("TOPRIGHT", 0, 2)
@@ -334,19 +327,19 @@ local init = function()
     loot_frame.field:SetPoint("TOPLEFT", 5, -25)
 
     -- roll 100 button
-    loot_frame.roll_main = CreateButton("LootLogRoll100", loot_frame, "Roll 100", 100, 25, function(self, ...) RandomRoll(1, 100) end)
+    loot_frame.roll_main = CreateButton("LootLogRoll100", loot_frame, LootLog_Locale.roll_main, 100, 25, function(self, ...) RandomRoll(1, 100) end)
     loot_frame.roll_main:SetPoint("BOTTOMLEFT", 2, 27)
 
     -- roll 50 button
-    loot_frame.roll_off = CreateButton("LootLogRoll50", loot_frame, "Roll 50", 100, 25, function(self, ...) RandomRoll(1, 50) end)
+    loot_frame.roll_off = CreateButton("LootLogRoll50", loot_frame, LootLog_Locale.roll_off, 100, 25, function(self, ...) RandomRoll(1, 50) end)
     loot_frame.roll_off:SetPoint("BOTTOMRIGHT", -2, 27)
 
     -- clear button
-    loot_frame.clear = CreateButton("LootLogClear", loot_frame, "Clear", 100, 25, function(self, ...) for i = #LootLog_looted_items, 1, -1 do table.remove(LootLog_looted_items, i) end; update_list() end)
+    loot_frame.clear = CreateButton("LootLogClear", loot_frame, LootLog_Locale.clear, 100, 25, function(self, ...) for i = #LootLog_looted_items, 1, -1 do table.remove(LootLog_looted_items, i) end; update_list() end)
     loot_frame.clear:SetPoint("BOTTOMRIGHT", -2, 2)
 
     -- settings button
-    loot_frame.settings = CreateButton("LootLogSettings", loot_frame, "Settings", 100, 25)
+    loot_frame.settings = CreateButton("LootLogSettings", loot_frame, LootLog_Locale.settings, 100, 25)
     loot_frame.settings:SetPoint("BOTTOMLEFT", 2, 2)
 
     -- initially hide frame
@@ -375,7 +368,7 @@ local init = function()
 
     settings_frame.title = settings_frame:CreateFontString("LootLogSettingsTitle", "OVERLAY", "GameFontNormal")
     settings_frame.title:SetPoint("TOPLEFT", 5, -5)
-    settings_frame.title:SetText("Loot Log — Settings")
+    settings_frame.title:SetText(LootLog_Locale.title .. " — " .. LootLog_Locale.settings)
 
     settings_frame.close = CreateFrame("Button", "LootLogSettingsClose", settings_frame, "UIPanelCloseButton")
     settings_frame.close:SetPoint("TOPRIGHT", 0, 2)
@@ -386,7 +379,7 @@ local init = function()
 
     settings_frame.quality_label = settings_frame:CreateFontString("LootLogQualityLabel", "OVERLAY", "GameFontHighlight")
     settings_frame.quality_label:SetPoint("TOPLEFT", 10, quality_y - 7)
-    settings_frame.quality_label:SetText("Min. quality")
+    settings_frame.quality_label:SetText(LootLog_Locale.min_quality)
 
     settings_frame.quality_options = CreateFrame("Frame", "LootLogQualityLabel", settings_frame, "UIDropDownMenuTemplate")
     settings_frame.quality_options:SetPoint("TOPRIGHT", 10, -30)
@@ -395,24 +388,24 @@ local init = function()
     UIDropDownMenu_Initialize(settings_frame.quality_options,
         function(self, _, _)
             local info = UIDropDownMenu_CreateInfo()
-            info.func = function(self, arg1, _, _) UIDropDownMenu_SetText(settings_frame.quality_options, qualities[arg1 + 1]); LootLog_min_quality = arg1; update_list() end
+            info.func = function(self, arg1, _, _) UIDropDownMenu_SetText(settings_frame.quality_options, LootLog_Locale.qualities[arg1 + 1]); LootLog_min_quality = arg1; update_list() end
 
-            info.text, info.arg1, info.checked = qualities[1], 0, LootLog_min_quality == 0
+            info.text, info.arg1, info.checked = LootLog_Locale.qualities[1], 0, LootLog_min_quality == 0
             UIDropDownMenu_AddButton(info)
 
-            info.text, info.arg1, info.checked = qualities[2], 1, LootLog_min_quality == 1
+            info.text, info.arg1, info.checked = LootLog_Locale.qualities[2], 1, LootLog_min_quality == 1
             UIDropDownMenu_AddButton(info)
 
-            info.text, info.arg1, info.checked = qualities[3], 2, LootLog_min_quality == 2
+            info.text, info.arg1, info.checked = LootLog_Locale.qualities[3], 2, LootLog_min_quality == 2
             UIDropDownMenu_AddButton(info)
 
-            info.text, info.arg1, info.checked = qualities[4], 3, LootLog_min_quality == 3
+            info.text, info.arg1, info.checked = LootLog_Locale.qualities[4], 3, LootLog_min_quality == 3
             UIDropDownMenu_AddButton(info)
 
-            info.text, info.arg1, info.checked = qualities[5], 4, LootLog_min_quality == 4
+            info.text, info.arg1, info.checked = LootLog_Locale.qualities[5], 4, LootLog_min_quality == 4
             UIDropDownMenu_AddButton(info)
 
-            info.text, info.arg1, info.checked = qualities[6], 5, LootLog_min_quality == 5
+            info.text, info.arg1, info.checked = LootLog_Locale.qualities[6], 5, LootLog_min_quality == 5
             UIDropDownMenu_AddButton(info)
         end)
 
@@ -420,8 +413,8 @@ local init = function()
     local equippable_y = -60
 
     settings_frame.equippable_label = settings_frame:CreateFontString("LootLogEquippableLabel", "OVERLAY", "GameFontHighlight")
-    settings_frame.equippable_label:SetPoint("TOPLEFT", 10, equippable_y - 7)
-    settings_frame.equippable_label:SetText("Equippable items only (experim.)")
+    settings_frame.equippable_label:SetPoint("TOPLEFT", 10, equippable_y - 6)
+    settings_frame.equippable_label:SetText(LootLog_Locale.equippable)
 
     settings_frame.equippable = CreateFrame("CheckButton", "LootLogEquippableCheckbox", settings_frame, "UICheckButtonTemplate")
     settings_frame.equippable:SetSize(25, 25)
@@ -432,8 +425,8 @@ local init = function()
     local auto_open_y = -83
 
     settings_frame.auto_open_label = settings_frame:CreateFontString("LootLogAutoOpenLabel", "OVERLAY", "GameFontHighlight")
-    settings_frame.auto_open_label:SetPoint("TOPLEFT", 10, auto_open_y - 7)
-    settings_frame.auto_open_label:SetText("Open on new loot")
+    settings_frame.auto_open_label:SetPoint("TOPLEFT", 10, auto_open_y - 6)
+    settings_frame.auto_open_label:SetText(LootLog_Locale.auto_open)
 
     settings_frame.auto_open = CreateFrame("CheckButton", "LootLogAutoOpenCheckbox", settings_frame, "UICheckButtonTemplate")
     settings_frame.auto_open:SetSize(25, 25)
@@ -444,8 +437,8 @@ local init = function()
     local filter_y = -106
 
     settings_frame.use_filter_label = settings_frame:CreateFontString("LootLogFilterLabel", "OVERLAY", "GameFontHighlight")
-    settings_frame.use_filter_label:SetPoint("TOPLEFT", 10, filter_y - 7)
-    settings_frame.use_filter_label:SetText("Show only items listed below")
+    settings_frame.use_filter_label:SetPoint("TOPLEFT", 10, filter_y - 6)
+    settings_frame.use_filter_label:SetText(LootLog_Locale.filter)
 
     settings_frame.use_filter = CreateFrame("CheckButton", "LootLogFilterCheckbox", settings_frame, "UICheckButtonTemplate")
     settings_frame.use_filter:SetSize(25, 25)
@@ -468,10 +461,10 @@ local init = function()
     settings_frame.item_id.background:SetAllPoints(settings_frame.item_id)
     settings_frame.item_id.background:SetColorTexture(0.5, 0.5, 0.5, 0.5)
 
-    settings_frame.item_add = CreateButton("LootLogFilterAdd", settings_frame, "Add Item by ID", 100, 25, function(self, ...) event_add_item(settings_frame.item_id:GetText()); settings_frame.item_id:SetText("") end)
+    settings_frame.item_add = CreateButton("LootLogFilterAdd", settings_frame, LootLog_Locale.add_item, 100, 25, function(self, ...) event_add_item(settings_frame.item_id:GetText()); settings_frame.item_id:SetText("") end)
     settings_frame.item_add:SetPoint("BOTTOMRIGHT", -55, 3)
 
-    settings_frame.clear_filter = CreateButton("LootLogFilterClear", settings_frame, "Clear", 50, 25, function(self, ...) for i = #LootLog_filter_list, 1, -1 do table.remove(LootLog_filter_list, i) end; update_filter(); update_list() end)
+    settings_frame.clear_filter = CreateButton("LootLogFilterClear", settings_frame, LootLog_Locale.clear, 50, 25, function(self, ...) for i = #LootLog_filter_list, 1, -1 do table.remove(LootLog_filter_list, i) end; update_filter(); update_list() end)
     settings_frame.clear_filter:SetPoint("BOTTOMRIGHT", -2, 3)
 
     -- initially hide settings frame
@@ -480,7 +473,7 @@ local init = function()
 
 
     -- button scripts
-    loot_frame.settings:SetScript("OnClick", function(self, ...) if (settings_frame_visible) then settings_frame_visible = false; settings_frame:Hide() else settings_frame_visible = true; settings_frame:Show() end; UIDropDownMenu_SetText(settings_frame.quality_options, qualities[LootLog_min_quality + 1]) end)
+    loot_frame.settings:SetScript("OnClick", function(self, ...) if (settings_frame_visible) then settings_frame_visible = false; settings_frame:Hide() else settings_frame_visible = true; settings_frame:Show() end; UIDropDownMenu_SetText(settings_frame.quality_options, LootLog_Locale.qualities[LootLog_min_quality + 1]) end)
 end
 
 init()
