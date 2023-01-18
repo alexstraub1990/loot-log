@@ -42,7 +42,7 @@ local update_list = function()
 
     for _, item_info in ipairs(LootLog_looted_items) do
         local item = {}
-        item.id = item_info[1] or item_info
+        item.id = type(item_info) == "table" and item_info[1] or item_info
         item.name = C_Item.GetItemNameByID(item.id)
         item.quality = C_Item.GetItemQualityByID(item.id)
 
@@ -80,7 +80,7 @@ local update_list = function()
             keep = false
 
             for _, filter_info in ipairs(LootLog_filter_list) do
-                local filter_id = filter_info[1] or filter_info
+                local filter_id = type(filter_info) == "table" and filter_info[1] or filter_info
 
                 if item.id == filter_id then keep = true end
             end
@@ -107,7 +107,7 @@ local update_filter = function()
 
     for _, item_info in ipairs(LootLog_filter_list) do
         local item = {}
-        item.id = item_info[1] or item_info
+        item.id = type(item_info) == "table" and item_info[1] or item_info
         item.name = C_Item.GetItemNameByID(item.id)
         item.quality = C_Item.GetItemQualityByID(item.id)
 
@@ -122,7 +122,7 @@ end
 local event_click_item = function(mouse_key, item_id)
     if (mouse_key == "RightButton") then
         for i, item_info in ipairs(LootLog_looted_items) do
-            if (item_info[1] or item_info) == item_id then
+            if (type(item_info) == "table" and item_info[1] or item_info) == item_id then
                 table.remove(LootLog_looted_items, i)
             end
         end
@@ -135,7 +135,7 @@ end
 local event_click_filter = function(mouse_key, item_id)
     if (mouse_key == "RightButton") then
         for i, item_info in ipairs(LootLog_filter_list) do
-            if (item_info[1] or item_info) == item_id then
+            if (type(item_info) == "table" and item_info[1] or item_info) == item_id then
                 table.remove(LootLog_filter_list, i)
             end
         end
@@ -177,9 +177,9 @@ local event_addon_loaded = function(_, _, addon)
             requires_cache_requests = true
             
             for _, item_id in ipairs(LootLog_looted_items) do
-                GetItemInfo(item_id[1] or item_id)
+                GetItemInfo(type(item_id) == "table" and item_id[1] or item_id)
 
-                table.insert(item_queue_load, item_id[1] or item_id)
+                table.insert(item_queue_load, type(item_id) == "table" and item_id[1] or item_id)
             end
         end
 
@@ -214,9 +214,9 @@ local event_addon_loaded = function(_, _, addon)
             requires_cache_requests = true
             
             for _, item_id in ipairs(LootLog_filter_list) do
-                GetItemInfo(item_id[1] or item_id)
+                GetItemInfo(type(item_id) == "table" and item_id[1] or item_id)
 
-                table.insert(item_queue_load, item_id)
+                table.insert(item_queue_load, type(item_id) == "table" and item_id[1] or item_id)
             end
         end
 
@@ -276,7 +276,7 @@ local event_looted = function(_, _, text)
     local found = false
 
     for _, item_info in ipairs(LootLog_looted_items) do
-        if (item_info[1] or item_info) == item_id then found = true end
+        if (type(item_info) == "table" and item_info[1] or item_info) == item_id then found = true end
     end
 
     if not found then
@@ -308,7 +308,7 @@ local event_add_item = function(item_id)
     local found = false
 
     for _, item_info in ipairs(LootLog_filter_list) do
-        if ((item_info[1] or item_info) == item_id) then found = true end
+        if (type(item_info) == "table" and item_info[1] or item_info) == item_id then found = true end
     end
 
     if not found then
