@@ -9,7 +9,7 @@ local settings_frame = CreateFrame("Frame", "LootLogSettings", UIParent)
 local settings_frame_visible = false
 
 -- special frames
-local event_cache_frame = CreateFrame("Frame")
+local event_cache_item_frame = CreateFrame("Frame")
 
 local scan_frame = CreateFrame("GameTooltip", "LootLogScanTooltip", nil, "GameTooltipTemplate")
 scan_frame:SetOwner(WorldFrame, "ANCHOR_NONE")
@@ -18,11 +18,14 @@ scan_frame:AddFontStrings(
     scan_frame:CreateFontString("$parentTextRight1", nil, "GameTooltipText"));
 
 -- temporary storage
-local item_queue = {}
+local item_queue_filter, item_queue_load = {}, {}
+local event_cache_filter_item
+
+local is_loaded = false
 
 -- toggle gui visibility
 local toggle_visibility = function()
-    if (LootLog_frame_visible) then
+    if LootLog_frame_visible then
         loot_frame:Hide()
         LootLog_frame_visible = false
     else
@@ -33,21 +36,21 @@ end
 
 -- update shown list
 local update_list = function()
-    if (LootLog_looted_items == nil) then return end
+    if not is_loaded or LootLog_looted_items == nil then return end
 
-    shown_items = {}
+    local shown_items = {}
 
     for _, item_info in ipairs(LootLog_looted_items) do
         local item = {}
-        item.id = item_info[1]
-        item.name = item_info[2]
-        item.quality = item_info[3]
+        item.id = item_info[1] or item_info
+        item.name = C_Item.GetItemNameByID(item.id)
+        item.quality = C_Item.GetItemQualityByID(item.id)
 
-        discard = false
-        keep = true
+        local discard = false
+        local keep = true
 
         -- filter by item quality
-        if (item.quality < LootLog_min_quality) then discard = true end
+        if item.quality < LootLog_min_quality then discard = true end
 
         -- filter by equippability (hack! scan tooltip for red text color; might break if other addons modify the tooltip)
         scan_frame:ClearLines()
@@ -58,8 +61,8 @@ local update_list = function()
                 local region = select(i, ...)
 
                 if region and region:GetObjectType() == "FontString" then
-                    text = region:GetText()
-                    r, g, b = region:GetTextColor()
+                    local text = region:GetText()
+                    local r, g, b = region:GetTextColor()
 
                     if (text and r > 0.9 and g < 0.2 and b < 0.2) then
                         return false
@@ -73,18 +76,18 @@ local update_list = function()
         discard = discard or (LootLog_equippable and not (IsEquippableItem(item.id) and scan_tooltip(scan_frame:GetRegions())))
 
         -- filter by filter list
-        if (LootLog_use_filter_list) then
+        if LootLog_use_filter_list then
             keep = false
 
             for _, filter_info in ipairs(LootLog_filter_list) do
-                local filter_id = filter_info[1]
+                local filter_id = filter_info[1] or filter_info
 
-                if (item.id == filter_id) then keep = true end
+                if item.id == filter_id then keep = true end
             end
         end
 
         -- add ID, icon, text color, and item name
-        if (keep and not discard) then
+        if keep and not discard then
             table.insert(shown_items, item)
         end
     end
@@ -98,15 +101,15 @@ end
 
 -- update filter list
 local update_filter = function()
-    if (LootLog_filter_list == nil) then return end
+    if not is_loaded or LootLog_filter_list == nil then return end
 
-    shown_items = {}
+    local shown_items = {}
 
     for _, item_info in ipairs(LootLog_filter_list) do
         local item = {}
-        item.id = item_info[1]
-        item.name = item_info[2]
-        item.quality = item_info[3]
+        item.id = item_info[1] or item_info
+        item.name = C_Item.GetItemNameByID(item.id)
+        item.quality = C_Item.GetItemQualityByID(item.id)
 
         -- add ID, icon, text color, and item name
         table.insert(shown_items, item)
@@ -119,7 +122,7 @@ end
 local event_click_item = function(mouse_key, item_id)
     if (mouse_key == "RightButton") then
         for i, item_info in ipairs(LootLog_looted_items) do
-            if (item_info[1] == item_id) then
+            if (item_info[1] or item_info) == item_id then
                 table.remove(LootLog_looted_items, i)
             end
         end
@@ -132,7 +135,7 @@ end
 local event_click_filter = function(mouse_key, item_id)
     if (mouse_key == "RightButton") then
         for i, item_info in ipairs(LootLog_filter_list) do
-            if (item_info[1] == item_id) then
+            if (item_info[1] or item_info) == item_id then
                 table.remove(LootLog_filter_list, i)
             end
         end
@@ -143,10 +146,41 @@ local event_click_filter = function(mouse_key, item_id)
 end
 
 -- load stored values
+local event_cache_load_item = function(self, event, item_id, success)
+    for i = #item_queue_load, 1, -1 do
+        local queue_item_id = tonumber(item_queue_load[i])
+
+        if queue_item_id == item_id or C_Item.GetItemNameByID(queue_item_id) then
+            table.remove(item_queue_load, i)
+        end
+    end
+
+    -- TODO: add timeout? where?
+
+    -- intially update list
+    if #item_queue_load == 0 then
+        is_loaded = true
+        event_cache_item_frame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
+
+        update_filter()
+        update_list()
+    end
+end
+
 local event_addon_loaded = function(_, _, addon)
     if addon == "LootLog" then
-        if LootLog_looted_items == nil then
+        local requires_cache_requests = false
+
+        if not LootLog_looted_items or #LootLog_looted_items == 0 then
             LootLog_looted_items = {}
+        else
+            requires_cache_requests = true
+            
+            for _, item_id in ipairs(LootLog_looted_items) do
+                GetItemInfo(item_id[1] or item_id)
+
+                table.insert(item_queue_load, item_id[1] or item_id)
+            end
         end
 
         if LootLog_frame_visible == nil then
@@ -174,8 +208,16 @@ local event_addon_loaded = function(_, _, addon)
             LootLog_use_filter_list = false
         end
 
-        if LootLog_filter_list == nil then
+        if not LootLog_filter_list or #LootLog_filter_list == 0 then
             LootLog_filter_list = {}
+        else
+            requires_cache_requests = true
+            
+            for _, item_id in ipairs(LootLog_filter_list) do
+                GetItemInfo(item_id[1] or item_id)
+
+                table.insert(item_queue_load, item_id)
+            end
         end
 
         if LootLog_minimap == nil then
@@ -204,83 +246,85 @@ local event_addon_loaded = function(_, _, addon)
         settings_frame.auto_open:SetChecked(LootLog_open_on_loot)
         settings_frame.use_filter:SetChecked(LootLog_use_filter_list)
 
-        -- intially update list
-        update_filter()
-        update_list()
+        -- initialize lists if possible
+        if requires_cache_requests then
+            event_cache_item_frame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+            event_cache_item_frame:SetScript("OnEvent", event_cache_load_item)
+
+            event_cache_load_item()
+        else
+            is_loaded = true
+    
+            update_filter()
+            update_list()
+        end
     end
 end
 
 -- main function for parsing loot messages
 local event_looted = function(_, _, text)
     -- parse item information
-    _, item_id_start = string.find(text, "|Hitem:")
-    text = string.sub(text, item_id_start + 1, -1)
+    local _, item_id_start = string.find(text, "|Hitem:")
+    local text = string.sub(text, item_id_start + 1, -1)
 
-    item_id_end, _ = string.find(text, ":")
+    local item_id_end, _ = string.find(text, ":")
     text = string.sub(text, 1, item_id_end - 1)
 
-    item_id = text
-    item_name = C_Item.GetItemNameByID(item_id)
-    item_quality = C_Item.GetItemQualityByID(item_id)
+    local item_id = text
 
     -- show and fill frame
-    found = false
+    local found = false
 
     for _, item_info in ipairs(LootLog_looted_items) do
-        if (item_info[1] == item_id) then found = true end
+        if (item_info[1] or item_info) == item_id then found = true end
     end
 
-    if (not found) then
-        table.insert(LootLog_looted_items, {item_id, item_name, item_quality})
+    if not found then
+        table.insert(LootLog_looted_items, item_id)
 
         update_list()
     end
 end
 
 -- handle adding and item to the filter list
-local event_add_item
-local event_cache
-
-event_add_item = function(item_id)
-    if (not C_Item.DoesItemExistByID(item_id)) then
+local event_add_item = function(item_id)
+    if not C_Item.DoesItemExistByID(item_id) then
         return
     end
 
-    item_name = C_Item.GetItemNameByID(item_id)
-    item_quality = C_Item.GetItemQualityByID(item_id)
+    -- if item is not cached, yet, request it
+    if not C_Item.GetItemNameByID(item_id) then
+        event_cache_item_frame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+        event_cache_item_frame:SetScript("OnEvent", event_cache_filter_item)
 
-    if (item_name == nil) then
         GetItemInfo(item_id)
 
-        table.insert(item_queue, item_id)
-
-        event_cache_frame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-        event_cache_frame:SetScript("OnEvent", event_cache)
+        table.insert(item_queue_filter, item_id)
 
         return
     end
 
     -- show and fill frame
-    found = false
+    local found = false
 
     for _, item_info in ipairs(LootLog_filter_list) do
-        if (item_info[1] == item_id) then found = true end
+        if ((item_info[1] or item_info) == item_id) then found = true end
     end
 
-    if (not found) then
-        table.insert(LootLog_filter_list, {item_id, item_name, item_quality})
+    if not found then
+        table.insert(LootLog_filter_list, item_id)
 
         update_filter()
         update_list()
     end
 end
 
-event_cache = function(self, event, item_id, success)
-    for i = 1, #item_queue, 1 do
-        if (tonumber(item_queue[i]) == item_id) then
-            table.remove(item_queue, i)
+event_cache_filter_item = function(self, event, item_id, success)
+    for i = 1, #item_queue_filter, 1 do
+        if tonumber(item_queue_filter[i]) == item_id then
+            table.remove(item_queue_filter, i)
 
-            if (success) then event_add_item(item_id) end
+            if success then event_add_item(item_id) end
         end
     end
 end
