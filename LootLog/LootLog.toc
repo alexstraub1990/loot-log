@@ -8,6 +8,7 @@
 LibDBIcon-1.0\embeds.xml
 LibDBIcon-1.0\LibDBIcon-1.0\lib.xml
 
+ItemCache.lua
 ItemFrame.lua
 Button.lua
 
