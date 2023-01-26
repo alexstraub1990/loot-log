@@ -115,7 +115,7 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
             ItemFrame.item_lines[i].icon_btn:SetAttribute("item", item.id);
             ItemFrame.item_lines[i].icon_btn:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_CURSOR"); GameTooltip:ClearLines(); GameTooltip:SetItemByID(self:GetAttribute("item")); GameTooltip:Show() end)
             ItemFrame.item_lines[i].icon_btn:SetScript("OnLeave", function(self) GameTooltip:Hide() end)
-            ItemFrame.item_lines[i].icon_btn:SetScript("OnMouseUp", function(self, button, ...) click_callback(button, self:GetAttribute("item")); update() end)
+            ItemFrame.item_lines[i].icon_btn:SetScript("OnMouseUp", function(self, button, ...) click_callback(button, self:GetAttribute("item")); ItemFrame.item_lines[i].icon_btn:GetScript("OnLeave")(); ItemFrame.item_lines[i].icon_btn:GetScript("OnEnter")(ItemFrame.item_lines[i].icon_btn); update() end)
 
             ItemFrame.item_lines[i].name:SetTextColor(item_color[1], item_color[2], item_color[3])
             ItemFrame.item_lines[i].name:SetText(item.name)

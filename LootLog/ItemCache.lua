@@ -1,3 +1,12 @@
+-- --------------------------------------------------------------------------------
+-- Item cache for porperly requesting and caching items.
+--
+-- A cache can be created by calling ItemCache.new(). In this cache, items can be
+-- requested by either calling ItemCache:getAsync(...), providing the item ID and
+-- a callback function triggered when the item is cached successfully, or directly
+-- by calling ItemCache:get(...). The latter will return nil if the item has not
+-- been cached before.
+-- --------------------------------------------------------------------------------
 ItemCache = {}
 ItemCache.queue = {}
 ItemCache.cache = {}
@@ -48,6 +57,8 @@ function ItemCache:event(item_id, success)
 
     -- check if the item that triggered the event is available
     if self.queue[item_id] then
+        local queued_item = self.queue[item_id]
+
         if success then
             self.cache[item_id] =
             {
@@ -56,11 +67,11 @@ function ItemCache:event(item_id, success)
                 quality = C_Item.GetItemQualityByID(item_id)
             }
 
-            for _, func in ipairs(self.queue[item_id].funcs) do
+            for _, func in ipairs(queued_item.funcs) do
                 func(self.cache[item_id])
             end
         end
-
+        
         self.queue[item_id] = nil
     end
 end
