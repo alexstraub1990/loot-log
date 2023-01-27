@@ -32,8 +32,8 @@ end
 
 -- create timestamp for ordering looted items and filter list
 local loot_information = function()
-    local index = LootLog_index
-    LootLog_index = LootLog_index + 1
+    local index = LootLog_loot_index
+    LootLog_loot_index = LootLog_loot_index + 1
 
     local datetime = C_DateAndTime.GetCurrentCalendarTime()
     datetime.day = datetime.monthDay
@@ -58,6 +58,14 @@ local loot_information_text = function(item_id)
     return item_information_text(item_id) .. ": " .. loot_information.zone .. ", " ..
         loot_information.date.day .. "." .. loot_information.date.month .. "." .. loot_information.date.year .. " " .. 
         loot_information.date.hour .. ":" .. loot_information.date.minute
+end
+
+local item_to_chat = function(item_id)
+    if ChatFrameEditBox and ChatFrameEditBox:IsVisible() then
+        ChatFrameEditBox:Insert(item_cache:get(item_id).link)
+    else
+        ChatEdit_InsertLink(item_cache:get(item_id).link)
+    end
 end
 
 -- update shown list
@@ -158,66 +166,35 @@ end
 
 -- handle click on an item
 local event_click_item = function(mouse_key, item_id)
-    if (mouse_key == "RightButton") then
-        for item_info, _ in pairs(LootLog_looted_items) do
-            if item_info == item_id then
-                LootLog_looted_items[item_info] = nil
+    local handler = {
+        ["RightButton"] = function(item_id) LootLog_looted_items[item_id] = nil; update_list() end,
+        ["LeftButton"] = function(item_id) if IsShiftKeyDown() then item_to_chat(item_id) else print(loot_information_text(item_id)) end end
+    }
 
-                update_list()
-            end
-        end
-    else
-        for item_info, _ in pairs(LootLog_looted_items) do
-            if item_info == item_id then
-                print(loot_information_text(item_info))
-            end
+    for item_info, _ in pairs(LootLog_looted_items) do
+        if item_info == item_id then
+            handler[mouse_key](item_id)
         end
     end
 end
 
 -- handle click on an item in the filter list
 local event_click_filter = function(mouse_key, item_id)
-    if (mouse_key == "RightButton") then
-        for item_info, _ in pairs(LootLog_filter_list) do
-            if item_info == item_id then
-                LootLog_filter_list[item_info] = nil
+    local handler = {
+        ["RightButton"] = function(item_id) LootLog_filter_list[item_id] = nil; update_filter(); update_list() end,
+        ["LeftButton"] = function(item_id) if IsShiftKeyDown() then item_to_chat(item_id) else print(item_information_text(item_id)) end end
+    }
 
-                update_filter()
-                update_list()
-            end
-        end
-    else
-        for item_info, _ in pairs(LootLog_filter_list) do
-            if item_info == item_id then
-                print(item_information_text(item_info))
-            end
+    for item_info, _ in pairs(LootLog_filter_list) do
+        if item_info == item_id then
+            handler[mouse_key](item_id)
         end
     end
 end
 
 local event_addon_loaded = function(_, _, addon)
     if addon == "LootLog" then
-        local needed_items = 0
-        for _, _ in pairs(LootLog_looted_items) do
-            needed_items = needed_items + 1
-        end
-        for _, _ in pairs(LootLog_filter_list) do
-            needed_items = needed_items + 1
-        end
-
-        if LootLog_index == nil then
-            LootLog_index = 0
-        end
-        
-        if not LootLog_looted_items or next(LootLog_looted_items) == nil then
-            LootLog_looted_items = {}
-        else
-            for item_id, _ in pairs(LootLog_looted_items) do
-                item_cache:getAsync(item_id,
-                    function() loaded_items = loaded_items + 1; if loaded_items == needed_items then is_loaded = true; update_filter(); update_list() end end)
-            end
-        end
-
+        -- options
         if LootLog_frame_visible == nil then
             LootLog_frame_visible = false
         end
@@ -243,15 +220,51 @@ local event_addon_loaded = function(_, _, addon)
             LootLog_use_filter_list = false
         end
 
+        -- stored loot and filter
+        if LootLog_loot_index == nil then
+            LootLog_loot_index = 0
+        end
+        if LootLog_filter_index == nil then
+            LootLog_filter_index = 0
+        end
+
+        if not LootLog_looted_items or next(LootLog_looted_items) == nil then
+            LootLog_looted_items = {}
+        else
+            for item_id, item_info in pairs(LootLog_looted_items) do
+                if not item_info or type(item_info) ~= "table" or not item_info.index then
+                    LootLog_looted_items = {}
+                end
+            end
+        end
         if not LootLog_filter_list or next(LootLog_filter_list) == nil then
             LootLog_filter_list = {}
         else
-            for item_id, _ in pairs(LootLog_filter_list) do
-                item_cache:getAsync(item_id,
-                    function() loaded_items = loaded_items + 1; if loaded_items == needed_items then is_loaded = true; update_filter(); update_list() end end)
+            for item_id, item_info in pairs(LootLog_filter_list) do
+                if not item_info or type(item_info) ~= "number" then
+                    LootLog_filter_list = {}
+                end
             end
         end
 
+        local needed_items = 0
+        for _, _ in pairs(LootLog_looted_items) do
+            needed_items = needed_items + 1
+        end
+        for _, _ in pairs(LootLog_filter_list) do
+            needed_items = needed_items + 1
+        end
+
+        for item_id, _ in pairs(LootLog_looted_items) do
+            item_cache:getAsync(item_id,
+                function() loaded_items = loaded_items + 1; if loaded_items == needed_items then is_loaded = true; update_filter(); update_list() end end)
+        end
+        for item_id, _ in pairs(LootLog_filter_list) do
+            item_cache:getAsync(item_id,
+                function() loaded_items = loaded_items + 1; if loaded_items == needed_items then is_loaded = true; update_filter(); update_list() end end)
+        end
+
+        -- minimap button
         if LootLog_minimap == nil then
             LootLog_minimap = {
                 ["minimapPos"] = 200.0,
@@ -259,7 +272,6 @@ local event_addon_loaded = function(_, _, addon)
             }
         end
 
-        -- minimap button
         local miniButton = LibStub("LibDataBroker-1.1"):NewDataObject("LootLog", {
             type = "data source",
             text = "Loot Log",
@@ -325,7 +337,10 @@ local event_add_item = function(item_id)
     end
 
     if not found then
-        item_cache:getAsync(item_id, function(item) LootLog_filter_list[item.id] = loot_information().index; update_filter(); update_list() end)
+        local index = LootLog_filter_index
+        LootLog_filter_index = LootLog_filter_index + 1
+
+        item_cache:getAsync(item_id, function(item) LootLog_filter_list[item.id] = index; update_filter(); update_list() end)
     end
 end
 
@@ -370,7 +385,8 @@ do
     loot_frame.roll_off:SetPoint("BOTTOMRIGHT", -2, 27)
 
     -- clear button
-    loot_frame.clear = CreateButton("LootLogClear", loot_frame, LootLog_Locale.clear, 100, 25, function(self, ...) for item_id, _ in pairs(LootLog_looted_items) do LootLog_looted_items[item_id] = nil end; update_list() end)
+    loot_frame.clear = CreateButton("LootLogClear", loot_frame, LootLog_Locale.clear, 100, 25, function(self, ...)
+        for item_id, _ in pairs(LootLog_looted_items) do LootLog_looted_items[item_id] = nil end; LootLog_loot_index = 0; update_list() end)
     loot_frame.clear:SetPoint("BOTTOMRIGHT", -2, 2)
 
     -- settings button
@@ -408,6 +424,11 @@ do
     settings_frame.close = CreateFrame("Button", "LootLogSettingsClose", settings_frame, "UIPanelCloseButton")
     settings_frame.close:SetPoint("TOPRIGHT", 0, 2)
     settings_frame.close:SetScript("OnClick", function(_, button) if (button == "LeftButton") then settings_frame_visible = false; settings_frame:Hide() end end)
+
+    _G["LootLogSettings"] = settings_frame
+    tinsert(UISpecialFrames, "LootLogSettings")
+
+    settings_frame:SetScript("OnHide", function() settings_frame_visible = false end)
 
     -- filter by quality
     local quality_y = -30
@@ -489,17 +510,21 @@ do
     settings_frame.item_id:SetFontObject(ChatFontNormal)
     settings_frame.item_id:SetAutoFocus(false)
     settings_frame.item_id:SetNumeric(true)
-    settings_frame.item_id:SetScript("OnEnterPressed", function(self, ...) event_add_item(settings_frame.item_id:GetText()); settings_frame.item_id:ClearFocus(); settings_frame.item_id:SetText("") end)
-    settings_frame.item_id:SetScript("OnEscapePressed", function(self, ...) settings_frame.item_id:ClearFocus(); settings_frame.item_id:SetText("") end)
+    settings_frame.item_id:SetScript("OnEnterPressed", function(self, ...)
+        event_add_item(settings_frame.item_id:GetText()); settings_frame.item_id:ClearFocus(); settings_frame.item_id:SetText("") end)
+    settings_frame.item_id:SetScript("OnEscapePressed", function(self, ...)
+        settings_frame.item_id:ClearFocus(); settings_frame.item_id:SetText("") end)
 
     settings_frame.item_id.background = settings_frame.item_id:CreateTexture()
     settings_frame.item_id.background:SetAllPoints(settings_frame.item_id)
     settings_frame.item_id.background:SetColorTexture(0.5, 0.5, 0.5, 0.5)
 
-    settings_frame.item_add = CreateButton("LootLogFilterAdd", settings_frame, LootLog_Locale.add_item, 100, 25, function(self, ...) event_add_item(settings_frame.item_id:GetText()); settings_frame.item_id:SetText("") end)
+    settings_frame.item_add = CreateButton("LootLogFilterAdd", settings_frame, LootLog_Locale.add_item, 100, 25, function(self, ...)
+        event_add_item(settings_frame.item_id:GetText()); settings_frame.item_id:SetText("") end)
     settings_frame.item_add:SetPoint("BOTTOMRIGHT", -55, 3)
 
-    settings_frame.clear_filter = CreateButton("LootLogFilterClear", settings_frame, LootLog_Locale.clear, 50, 25, function(self, ...) for item_id, _ in pairs(LootLog_filter_list) do LootLog_filter_list[item_id] = nil end; update_filter(); update_list() end)
+    settings_frame.clear_filter = CreateButton("LootLogFilterClear", settings_frame, LootLog_Locale.clear, 50, 25, function(self, ...)
+        for item_id, _ in pairs(LootLog_filter_list) do LootLog_filter_list[item_id] = nil end; LootLog_filter_index = 0; update_filter(); update_list() end)
     settings_frame.clear_filter:SetPoint("BOTTOMRIGHT", -2, 3)
 
     -- initially hide settings frame
@@ -508,7 +533,8 @@ do
 
 
     -- scripts
-    loot_frame.settings:SetScript("OnClick", function(self, ...) if (settings_frame_visible) then settings_frame_visible = false; settings_frame:Hide() else settings_frame_visible = true; settings_frame:Show() end; UIDropDownMenu_SetText(settings_frame.quality_options, LootLog_Locale.qualities[LootLog_min_quality + 1]) end)
+    loot_frame.settings:SetScript("OnClick", function(self, ...) if (settings_frame_visible) then settings_frame_visible = false; settings_frame:Hide()
+        else settings_frame_visible = true; settings_frame:Show() end; UIDropDownMenu_SetText(settings_frame.quality_options, LootLog_Locale.qualities[LootLog_min_quality + 1]) end)
 
     scan_frame:SetOwner(WorldFrame, "ANCHOR_NONE")
     scan_frame:AddFontStrings(

@@ -60,11 +60,14 @@ function ItemCache:event(item_id, success)
         local queued_item = self.queue[item_id]
 
         if success then
+            local _, link = GetItemInfo(item_id)
+
             self.cache[item_id] =
             {
                 id = item_id,
                 name = C_Item.GetItemNameByID(item_id),
-                quality = C_Item.GetItemQualityByID(item_id)
+                quality = C_Item.GetItemQualityByID(item_id),
+                link = link
             }
 
             for _, func in ipairs(queued_item.funcs) do
