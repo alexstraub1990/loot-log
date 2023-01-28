@@ -4,9 +4,7 @@ local num_items = 15
 
 -- top-level gui frames
 local loot_frame = CreateFrame("Frame", "LootLogFrame", UIParent)
-
 local settings_frame = CreateFrame("Frame", "LootLogSettings", UIParent)
-local settings_frame_visible = false
 
 -- special frames
 local event_load_frame = CreateFrame("Frame")
@@ -22,7 +20,7 @@ local is_loaded = false
 
 -- toggle gui visibility
 local toggle_visibility = function()
-    if LootLog_frame_visible then
+    if loot_frame:IsVisible() then
         loot_frame:Hide()
         LootLog_frame_visible = false
     else
@@ -133,7 +131,7 @@ local update_list = function()
         end
     end
 
-    if (LootLog_open_on_loot and not LootLog_frame_visible and #shown_items ~= loot_frame.field:GetNumItems()) then
+    if (LootLog_open_on_loot and not loot_frame:IsVisible() and #shown_items ~= loot_frame.field:GetNumItems()) then
         toggle_visibility()
     end
 
@@ -199,7 +197,7 @@ local event_addon_loaded = function(_, _, addon)
         if LootLog_frame_visible == nil then
             LootLog_frame_visible = false
         end
-        if (LootLog_frame_visible) then
+        if LootLog_frame_visible then
             loot_frame:Show()
         else
             loot_frame:Hide()
@@ -449,12 +447,10 @@ do
 
     settings_frame.close = CreateFrame("Button", "LootLogSettingsClose", settings_frame, "UIPanelCloseButton")
     settings_frame.close:SetPoint("TOPRIGHT", 0, 2)
-    settings_frame.close:SetScript("OnClick", function(_, button) if (button == "LeftButton") then settings_frame_visible = false; settings_frame:Hide() end end)
+    settings_frame.close:SetScript("OnClick", function(_, button) if (button == "LeftButton") then settings_frame:Hide() end end)
 
     _G["LootLogSettings"] = settings_frame
     tinsert(UISpecialFrames, "LootLogSettings")
-
-    settings_frame:SetScript("OnHide", function() settings_frame_visible = false end)
 
     -- filter by quality
     local quality_y = -30
@@ -559,8 +555,8 @@ do
 
 
     -- scripts
-    loot_frame.settings:SetScript("OnClick", function(self, ...) if (settings_frame_visible) then settings_frame_visible = false; settings_frame:Hide()
-        else settings_frame_visible = true; settings_frame:Show() end; UIDropDownMenu_SetText(settings_frame.quality_options, LootLog_Locale.qualities[LootLog_min_quality + 1]) end)
+    loot_frame.settings:SetScript("OnClick", function(self, ...) if (settings_frame:IsVisible()) then settings_frame:Hide()
+        else settings_frame:Show() end; UIDropDownMenu_SetText(settings_frame.quality_options, LootLog_Locale.qualities[LootLog_min_quality + 1]) end)
 
     scan_frame:SetOwner(WorldFrame, "ANCHOR_NONE")
     scan_frame:AddFontStrings(
