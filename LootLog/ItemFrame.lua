@@ -31,8 +31,6 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
 
     -- frames/textures
     ItemFrame.background = {} -- background texture
-    ItemFrame.up = {} -- button for scrolling up
-    ItemFrame.down = {} -- button for scrolling down
     ItemFrame.item_lines = {} -- individual frames for items
 
     -- stored values
@@ -46,17 +44,9 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
         ItemFrame:SetHeight(ItemFrame.num_item_frames * ItemFrame.item_height)
 
         -- set background texture
-        ItemFrame.background  = ItemFrame:CreateTexture()
+        ItemFrame.background = ItemFrame:CreateTexture()
         ItemFrame.background:SetAllPoints(ItemFrame)
         ItemFrame.background:SetColorTexture(0.2, 0.2, 0.2, 0.5)
-
-        -- create button for scrolling up
-        ItemFrame.up = CreateFrame("Button", name .. "Up", ItemFrame, "UIPanelScrollUpButtonTemplate")
-        ItemFrame.up:SetPoint("TOPRIGHT", 0, 0)
-
-        -- create button for scrolling down
-        ItemFrame.down = CreateFrame("Button", name .. "Down", ItemFrame, "UIPanelScrollDownButtonTemplate")
-        ItemFrame.down:SetPoint("BOTTOMRIGHT", 0, 0)
 
         -- create frames for item lines
         for i = 1, ItemFrame.num_item_frames, 1 do
@@ -81,18 +71,15 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
 
             table.insert(ItemFrame.item_lines, item_line)
         end
+        
+        -- scroll frame
+        ItemFrame.ScrollFrame = CreateFrame("ScrollFrame", name .. "ScrollFrame", ItemFrame, "FauxScrollFrameTemplate")
+        ItemFrame.ScrollFrame:SetWidth(ItemFrame.frame_width - 22)
+        ItemFrame.ScrollFrame:SetHeight(ItemFrame.num_item_frames * ItemFrame.item_height)
+        ItemFrame.ScrollFrame:SetPoint("TOPLEFT", 0, 0)
     end
 
     initialize()
-
-    -- implement scrolling of the frame triggered by the up- and down-buttons
-    local function scroll(direction)
-        ItemFrame.scroll_pos = ItemFrame.scroll_pos + direction
-
-        if (ItemFrame.scroll_pos < 1) then
-            ItemFrame.scroll_pos = 1
-        end
-    end
 
     -- Update visual representation
     local update
@@ -100,6 +87,8 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
         -- adjust scroll position
         local max_scroll_pos = max(1, #ItemFrame.items - ItemFrame.num_item_frames + 1)
         if (ItemFrame.scroll_pos > max_scroll_pos) then ItemFrame.scroll_pos = max_scroll_pos end
+
+        FauxScrollFrame_Update(ItemFrame.ScrollFrame, #ItemFrame.items, ItemFrame.num_item_frames, 1)
 
         -- visually prepare shown item list
         for i = 1, min(#ItemFrame.items, ItemFrame.num_item_frames), 1 do
@@ -160,9 +149,16 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
         update()
     end
 
-    -- set scripts
-    ItemFrame.up:SetScript("OnClick", function(self, ...) scroll(-1); update() end)
-    ItemFrame.down:SetScript("OnClick", function(self, ...) scroll(1); update() end)
+    -- implement scrolling of the frame
+    local function update_scroll()
+        FauxScrollFrame_Update(ItemFrame.ScrollFrame, #ItemFrame.items, ItemFrame.num_item_frames, 1)
+        ItemFrame.scroll_pos = FauxScrollFrame_GetOffset(ItemFrame.ScrollFrame) + 1
+        update()
+    end
+
+    ItemFrame.ScrollFrame:SetScript("OnVerticalScroll", function(_, offset)
+        FauxScrollFrame_OnVerticalScroll(ItemFrame.ScrollFrame, offset, 1, update_scroll)
+    end)
 
     -- return created frame
     return ItemFrame
