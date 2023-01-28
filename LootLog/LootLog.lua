@@ -11,6 +11,7 @@ local settings_frame_visible = false
 -- special frames
 local event_load_frame = CreateFrame("Frame")
 local event_loot_frame = CreateFrame("Frame")
+local event_gargul_frame = CreateFrame("Frame")
 local scan_frame = CreateFrame("GameTooltip", "LootLogScanTooltip", nil, "GameTooltipTemplate")
 
 -- temporary storage
@@ -31,7 +32,7 @@ local toggle_visibility = function()
 end
 
 -- create timestamp for ordering looted items and filter list
-local loot_information = function()
+local loot_information = function(source)
     local index = LootLog_loot_index
     LootLog_loot_index = LootLog_loot_index + 1
 
@@ -42,7 +43,7 @@ local loot_information = function()
 
     local zone = GetRealZoneText()
 
-    return { index = index, date = datetime, zone = zone }
+    return { index = index, date = datetime, zone = zone, source = source }
 end
 
 local item_information_text = function(item_id)
@@ -300,7 +301,7 @@ local event_addon_loaded = function(_, _, addon)
     end
 end
 
--- main function for parsing loot messages
+-- function for parsing loot messages
 local event_looted = function(_, _, text)
     -- parse item information
     local _, item_id_start = string.find(text, "|Hitem:")
@@ -319,7 +320,32 @@ local event_looted = function(_, _, text)
     end
 
     if not found then
-        item_cache:getAsync(item_id, function(item) LootLog_looted_items[item.id] = loot_information(); update_list() end)
+        item_cache:getAsync(item_id, function(item) LootLog_looted_items[item.id] = loot_information("loot"); update_list() end)
+    end
+end
+
+-- function for parsing chat loot messages
+local event_gargul = function(_, _, text)
+    if string.find(text, "Gargul") and (string.find(text, "]") + 4) == string.len(text) then
+        -- parse item information
+        local _, item_id_start = string.find(text, "|Hitem:")
+        local text = string.sub(text, item_id_start + 1, -1)
+
+        local item_id_end, _ = string.find(text, ":")
+        text = string.sub(text, 1, item_id_end - 1)
+
+        local item_id = tonumber(text)
+
+        -- show and fill frame
+        local found = false
+
+        for item_info, _ in pairs(LootLog_looted_items) do
+            if item_info == item_id then found = true end
+        end
+
+        if not found then
+            item_cache:getAsync(item_id, function(item) LootLog_looted_items[item.id] = loot_information("gargul"); update_list() end)
+        end
     end
 end
 
@@ -546,6 +572,11 @@ do
 
     event_loot_frame:RegisterEvent("CHAT_MSG_LOOT")
     event_loot_frame:SetScript("OnEvent", event_looted)
+
+    event_gargul_frame:RegisterEvent("CHAT_MSG_RAID_WARNING")
+    event_gargul_frame:RegisterEvent("CHAT_MSG_RAID_LEADER")
+    event_gargul_frame:RegisterEvent("CHAT_MSG_RAID")
+    event_gargul_frame:SetScript("OnEvent", event_gargul)
 end
 
 -- slash commands
