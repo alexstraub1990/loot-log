@@ -324,7 +324,7 @@ end
 
 -- function for parsing chat loot messages
 local event_gargul = function(_, _, text)
-    if string.find(text, "Gargul") and (string.find(text, "]") + 4) == string.len(text) then
+    if text and string.find(text, "Gargul") and string.find(text, "]") and (string.find(text, "]") + 4) == string.len(text) then
         -- parse item information
         local _, item_id_start = string.find(text, "|Hitem:")
         local text = string.sub(text, item_id_start + 1, -1)
