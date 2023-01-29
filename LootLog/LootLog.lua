@@ -104,7 +104,7 @@ local update_list = function()
                     local text = region:GetText()
                     local r, g, b = region:GetTextColor()
 
-                    if (text and r > 0.9 and g < 0.2 and b < 0.2) then
+                    if text and (r > 0.9 and g < 0.2 and b < 0.2) then
                         return false
                     end
                 end
@@ -112,7 +112,7 @@ local update_list = function()
 
             return true
         end
-
+        
         discard = discard or (LootLog_equippable and not (IsEquippableItem(item.id) and scan_tooltip(scan_frame:GetRegions())))
 
         -- filter by filter list
@@ -120,7 +120,7 @@ local update_list = function()
             keep = false
 
             for filter_info, _ in pairs(LootLog_filter_list) do
-                local filter_id = type(filter_info) == "table" and filter_info[1] or filter_info
+                local filter_id = filter_info
 
                 if item.id == filter_id then keep = true end
             end

@@ -88,7 +88,7 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
         local max_scroll_pos = max(1, #ItemFrame.items - ItemFrame.num_item_frames + 1)
         if (ItemFrame.scroll_pos > max_scroll_pos) then ItemFrame.scroll_pos = max_scroll_pos end
 
-        FauxScrollFrame_Update(ItemFrame.ScrollFrame, #ItemFrame.items, ItemFrame.num_item_frames, 1)
+        FauxScrollFrame_Update(ItemFrame.ScrollFrame, #ItemFrame.items, ItemFrame.num_item_frames, ItemFrame.item_height)
 
         -- visually prepare shown item list
         for i = 1, min(#ItemFrame.items, ItemFrame.num_item_frames), 1 do
@@ -151,13 +151,14 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
 
     -- implement scrolling of the frame
     local function update_scroll()
-        FauxScrollFrame_Update(ItemFrame.ScrollFrame, #ItemFrame.items, ItemFrame.num_item_frames, 1)
+        FauxScrollFrame_Update(ItemFrame.ScrollFrame, #ItemFrame.items, ItemFrame.num_item_frames, ItemFrame.item_height)
         ItemFrame.scroll_pos = FauxScrollFrame_GetOffset(ItemFrame.ScrollFrame) + 1
+        print(ItemFrame.scroll_pos)
         update()
     end
 
     ItemFrame.ScrollFrame:SetScript("OnVerticalScroll", function(_, offset)
-        FauxScrollFrame_OnVerticalScroll(ItemFrame.ScrollFrame, offset, 1, update_scroll)
+        FauxScrollFrame_OnVerticalScroll(ItemFrame.ScrollFrame, offset, ItemFrame.item_height, update_scroll)
     end)
 
     -- return created frame
