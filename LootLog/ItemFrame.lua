@@ -153,7 +153,7 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
     local function update_scroll()
         FauxScrollFrame_Update(ItemFrame.ScrollFrame, #ItemFrame.items, ItemFrame.num_item_frames, ItemFrame.item_height)
         ItemFrame.scroll_pos = FauxScrollFrame_GetOffset(ItemFrame.ScrollFrame) + 1
-        print(ItemFrame.scroll_pos)
+        
         update()
     end
 
