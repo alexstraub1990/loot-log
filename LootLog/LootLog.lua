@@ -54,9 +54,13 @@ end
 local loot_information_text = function(item_id)
     local loot_information = LootLog_looted_items[item_id]
 
+    local function pad(value, num)
+        return string.rep("0", num - string.len(value)) .. value
+    end
+
     return item_information_text(item_id) .. ": " .. loot_information.zone .. ", " ..
-        loot_information.date.day .. "." .. loot_information.date.month .. "." .. loot_information.date.year .. " " .. 
-        loot_information.date.hour .. ":" .. loot_information.date.minute
+        pad(loot_information.date.day, 2) .. "." .. pad(loot_information.date.month, 2) .. "." .. loot_information.date.year .. " " .. 
+        pad(loot_information.date.hour, 2) .. ":" .. pad(loot_information.date.minute, 2)
 end
 
 local item_to_chat = function(item_id)
