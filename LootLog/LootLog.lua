@@ -30,7 +30,7 @@ local toggle_visibility = function()
 end
 
 -- create timestamp for ordering looted items and filter list
-local loot_information = function(source)
+local loot_information = function(source, amount)
     local index = LootLog_loot_index
     LootLog_loot_index = LootLog_loot_index + 1
 
@@ -41,7 +41,7 @@ local loot_information = function(source)
 
     local zone = GetRealZoneText()
 
-    return { index = index, date = datetime, zone = zone, source = source }
+    return { index = index, date = datetime, zone = zone, source = source, amount = amount }
 end
 
 local item_information_text = function(item_id)
@@ -60,7 +60,8 @@ local loot_information_text = function(item_id)
 
     return item_information_text(item_id) .. ": " .. loot_information.zone .. ", " ..
         pad(loot_information.date.day, 2) .. "." .. pad(loot_information.date.month, 2) .. "." .. loot_information.date.year .. " " .. 
-        pad(loot_information.date.hour, 2) .. ":" .. pad(loot_information.date.minute, 2)
+        pad(loot_information.date.hour, 2) .. ":" .. pad(loot_information.date.minute, 2) ..
+        (loot_information["amount"] and " (" .. LootLog_Locale.dropped_before .. loot_information.amount .. LootLog_Locale.dropped_after .. "; " .. LootLog_Locale.source .. ": " .. loot_information.source .. ")" or "")
 end
 
 local item_to_chat = function(item_id)
@@ -83,7 +84,8 @@ local update_list = function()
         table.insert(sorted_keys, info.index)
     end
 
-    table.sort(sorted_keys)
+    local sort_function = LootLog_invertsorting and function(a, b) return a > b end or function(a, b) return a < b end
+    table.sort(sorted_keys, sort_function)
 
     local shown_items = {}
 
@@ -95,6 +97,12 @@ local update_list = function()
 
         -- filter by item quality
         if item.quality < LootLog_min_quality then discard = true end
+        
+        -- filter by source
+        if LootLog_source and LootLog_source ~= 0 then
+            if LootLog_looted_items[sorted_items[key]].source == "loot" and LootLog_source ~= 1 then discard = true end
+            if LootLog_looted_items[sorted_items[key]].source == "gargul" and LootLog_source ~= 2 then discard = true end
+        end
 
         -- filter by equippability (hack! scan tooltip for red text color; might break if other addons modify the tooltip)
         scan_frame:ClearLines()
@@ -207,10 +215,18 @@ local event_addon_loaded = function(_, _, addon)
             loot_frame:Hide()
         end
 
+        if LootLog_source == nil then
+            LootLog_source = 0
+        end
+
         if LootLog_min_quality == nil then
             LootLog_min_quality = 4
         end
 
+        if LootLog_invertsorting == nil then
+            LootLog_invertsorting = true
+        end
+    
         if LootLog_equippable == nil then
             LootLog_equippable = false
         end
@@ -288,7 +304,9 @@ local event_addon_loaded = function(_, _, addon)
 
         -- initialize settings
         UIDropDownMenu_SetText(settings_frame.quality_options, LootLog_Locale.qualities[LootLog_min_quality + 1])
+        UIDropDownMenu_SetText(settings_frame.source_options, LootLog_Locale.sources[LootLog_source + 1])
 
+        settings_frame.invertsorting:SetChecked(LootLog_invertsorting)
         settings_frame.equippable:SetChecked(LootLog_equippable)
         settings_frame.auto_open:SetChecked(LootLog_open_on_loot)
         settings_frame.use_filter:SetChecked(LootLog_use_filter_list)
@@ -322,7 +340,10 @@ local event_looted = function(_, _, text)
     end
 
     if not found then
-        item_cache:getAsync(item_id, function(item) LootLog_looted_items[item.id] = loot_information("loot"); update_list() end)
+        item_cache:getAsync(item_id, function(item) LootLog_looted_items[item.id] = loot_information("loot", 1); update_list() end)
+    else
+        LootLog_looted_items[item_id] = loot_information("loot", (LootLog_looted_items[item_id]["amount"] and LootLog_looted_items[item_id].amount or 1) + 1)
+        update_list()
     end
 end
 
@@ -346,7 +367,10 @@ local event_gargul = function(_, _, text)
         end
 
         if not found then
-            item_cache:getAsync(item_id, function(item) LootLog_looted_items[item.id] = loot_information("gargul"); update_list() end)
+            item_cache:getAsync(item_id, function(item) LootLog_looted_items[item.id] = loot_information("gargul", 1); update_list() end)
+        else
+            LootLog_looted_items[item.id] = loot_information("loot", (LootLog_looted_items[item_id]["amount"] and LootLog_looted_items[item_id].amount or 1) + 1)
+            update_list()
         end
     end
 end
@@ -418,7 +442,7 @@ do
     loot_frame.clear:SetPoint("BOTTOMRIGHT", -2, 2)
 
     -- settings button
-    loot_frame.settings = CreateButton("LootLogSettings", loot_frame, LootLog_Locale.settings, 100, 25)
+    loot_frame.settings = CreateButton("LootLogConfig", loot_frame, LootLog_Locale.settings, 100, 25)
     loot_frame.settings:SetPoint("BOTTOMLEFT", 2, 2)
 
     -- initially hide frame
@@ -432,7 +456,7 @@ do
     -- initialize settings window
     settings_frame:SetFrameStrata("HIGH")
     settings_frame:SetWidth(250)
-    settings_frame:SetHeight(170 + select(2, filter_frame:GetFrameSize()))
+    settings_frame:SetHeight(223 + select(2, filter_frame:GetFrameSize()))
     settings_frame:SetPoint("CENTER", 150, 0)
     settings_frame:SetMovable(true)
     settings_frame:EnableMouse(true)
@@ -456,15 +480,41 @@ do
     _G["LootLogSettings"] = settings_frame
     tinsert(UISpecialFrames, "LootLogSettings")
 
+    -- filter by source
+    local source_y = -30
+
+    settings_frame.source_label = settings_frame:CreateFontString("LootLogSourceLabel", "OVERLAY", "GameFontHighlight")
+    settings_frame.source_label:SetPoint("TOPLEFT", 10, source_y - 7)
+    settings_frame.source_label:SetText(LootLog_Locale.source)
+
+    settings_frame.source_options = CreateFrame("Frame", "LootLogSourceDropdown", settings_frame, "UIDropDownMenuTemplate")
+    settings_frame.source_options:SetPoint("TOPRIGHT", 10, source_y)
+
+    UIDropDownMenu_SetWidth(settings_frame.source_options, 100)
+    UIDropDownMenu_Initialize(settings_frame.source_options,
+        function(self, _, _)
+            local info = UIDropDownMenu_CreateInfo()
+            info.func = function(self, arg1, _, _) UIDropDownMenu_SetText(settings_frame.source_options, LootLog_Locale.sources[arg1 + 1]); LootLog_source = arg1; update_list() end
+
+            info.text, info.arg1, info.checked = LootLog_Locale.sources[1], 0, LootLog_source == 0
+            UIDropDownMenu_AddButton(info)
+
+            info.text, info.arg1, info.checked = LootLog_Locale.sources[2], 1, LootLog_source == 1
+            UIDropDownMenu_AddButton(info)
+
+            info.text, info.arg1, info.checked = LootLog_Locale.sources[3], 2, LootLog_source == 2
+            UIDropDownMenu_AddButton(info)
+        end)
+
     -- filter by quality
-    local quality_y = -30
+    local quality_y = -60
 
     settings_frame.quality_label = settings_frame:CreateFontString("LootLogQualityLabel", "OVERLAY", "GameFontHighlight")
     settings_frame.quality_label:SetPoint("TOPLEFT", 10, quality_y - 7)
     settings_frame.quality_label:SetText(LootLog_Locale.min_quality)
 
-    settings_frame.quality_options = CreateFrame("Frame", "LootLogQualityLabel", settings_frame, "UIDropDownMenuTemplate")
-    settings_frame.quality_options:SetPoint("TOPRIGHT", 10, -30)
+    settings_frame.quality_options = CreateFrame("Frame", "LootLogQualityDropdown", settings_frame, "UIDropDownMenuTemplate")
+    settings_frame.quality_options:SetPoint("TOPRIGHT", 10, quality_y)
 
     UIDropDownMenu_SetWidth(settings_frame.quality_options, 100)
     UIDropDownMenu_Initialize(settings_frame.quality_options,
@@ -491,8 +541,20 @@ do
             UIDropDownMenu_AddButton(info)
         end)
 
+    -- option to invert sorting
+    local invertsorting_y = -90
+
+    settings_frame.invertsorting_label = settings_frame:CreateFontString("LootLogInvertSortingLabel", "OVERLAY", "GameFontHighlight")
+    settings_frame.invertsorting_label:SetPoint("TOPLEFT", 10, invertsorting_y - 6)
+    settings_frame.invertsorting_label:SetText(LootLog_Locale.invertsorting)
+
+    settings_frame.invertsorting = CreateFrame("CheckButton", "LootLogInvertSortingCheckbox", settings_frame, "UICheckButtonTemplate")
+    settings_frame.invertsorting:SetSize(25, 25)
+    settings_frame.invertsorting:SetPoint("TOPRIGHT", -8, invertsorting_y)
+    settings_frame.invertsorting:HookScript("OnClick", function(self, button, ...) LootLog_invertsorting = settings_frame.invertsorting:GetChecked(); update_list() end)
+
     -- option to show only equippable loot
-    local equippable_y = -60
+    local equippable_y = -113
 
     settings_frame.equippable_label = settings_frame:CreateFontString("LootLogEquippableLabel", "OVERLAY", "GameFontHighlight")
     settings_frame.equippable_label:SetPoint("TOPLEFT", 10, equippable_y - 6)
@@ -504,7 +566,7 @@ do
     settings_frame.equippable:HookScript("OnClick", function(self, button, ...) LootLog_equippable = settings_frame.equippable:GetChecked(); update_list() end)
 
     -- option to open frame automatically on new loot
-    local auto_open_y = -83
+    local auto_open_y = -136
 
     settings_frame.auto_open_label = settings_frame:CreateFontString("LootLogAutoOpenLabel", "OVERLAY", "GameFontHighlight")
     settings_frame.auto_open_label:SetPoint("TOPLEFT", 10, auto_open_y - 6)
@@ -516,7 +578,7 @@ do
     settings_frame.auto_open:HookScript("OnClick", function(self, button, ...) LootLog_open_on_loot = settings_frame.auto_open:GetChecked() end)
 
     -- option to add only items to the loot list that are in the following priority list
-    local filter_y = -106
+    local filter_y = -159
 
     settings_frame.use_filter_label = settings_frame:CreateFontString("LootLogFilterLabel", "OVERLAY", "GameFontHighlight")
     settings_frame.use_filter_label:SetPoint("TOPLEFT", 10, filter_y - 6)
@@ -560,7 +622,9 @@ do
 
     -- scripts
     loot_frame.settings:SetScript("OnClick", function(self, ...) if (settings_frame:IsVisible()) then settings_frame:Hide()
-        else settings_frame:Show() end; UIDropDownMenu_SetText(settings_frame.quality_options, LootLog_Locale.qualities[LootLog_min_quality + 1]) end)
+        else settings_frame:Show() end;
+        UIDropDownMenu_SetText(settings_frame.quality_options, LootLog_Locale.qualities[LootLog_min_quality + 1]);
+        UIDropDownMenu_SetText(settings_frame.source_options, LootLog_Locale.sources[LootLog_source + 1]) end)
 
     scan_frame:SetOwner(WorldFrame, "ANCHOR_NONE")
     scan_frame:AddFontStrings(
