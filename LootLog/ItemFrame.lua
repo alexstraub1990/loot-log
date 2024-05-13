@@ -103,7 +103,7 @@ function CreateItemFrame(name, parent, num_item_frames, frame_width, click_callb
             ItemFrame.item_lines[i].icon_btn:SetAttribute("type", "item");
             ItemFrame.item_lines[i].icon_btn:SetAttribute("item", item.id);
             ItemFrame.item_lines[i].icon_btn:SetScript("OnEnter", function(self)
-                GameTooltip:SetOwner(self, "ANCHOR_CURSOR"); GameTooltip:ClearLines(); GameTooltip:SetItemByID(self:GetAttribute("item")); GameTooltip:Show() end)
+                GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT"); GameTooltip:ClearLines(); GameTooltip:SetItemByID(self:GetAttribute("item")); GameTooltip:Show() end)
             ItemFrame.item_lines[i].icon_btn:SetScript("OnLeave", function(self) GameTooltip:Hide() end)
             ItemFrame.item_lines[i].icon_btn:SetScript("OnMouseUp", function(self, button, ...)
                 click_callback(button, self:GetAttribute("item"))
