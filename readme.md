@@ -26,4 +26,4 @@ From the settings menu, you can filter items by selecting a minimum item quality
 
 ![Settings window](screenshot_settings.png)
 
-In case you want to set up a list of items you need from you raid, you can add these items by their ID to a list. Further, you can set the main window to automatically open when new loot was tracked.
+In case you want to set up a list of items you need from your raid, you can add these items by their ID to a list. Further, you can set the main window to automatically open when new loot was tracked.
