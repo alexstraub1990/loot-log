@@ -5,6 +5,8 @@ local num_items = 15
 -- top-level gui frames
 local loot_frame = CreateFrame("Frame", "LootLogFrame", UIParent)
 local settings_frame = CreateFrame("Frame", "LootLogSettings", UIParent)
+local info_frame = CreateFrame("Frame", "LootLogInfo", UIParent)
+local roll_frame = CreateFrame("Frame", "LootLogRoll", UIParent)
 
 -- special frames
 local event_load_frame = CreateFrame("Frame")
@@ -59,7 +61,7 @@ local loot_information_text = function(item_id)
     end
 
     return item_information_text(item_id) .. ": " .. loot_information.zone .. ", " ..
-        pad(loot_information.date.day, 2) .. "." .. pad(loot_information.date.month, 2) .. "." .. loot_information.date.year .. " " .. 
+        pad(loot_information.date.day, 2) .. "." .. pad(loot_information.date.month, 2) .. "." .. loot_information.date.year .. " " ..
         pad(loot_information.date.hour, 2) .. ":" .. pad(loot_information.date.minute, 2) ..
         (loot_information["amount"] and " (" .. LootLog_Locale.dropped_before .. loot_information.amount .. LootLog_Locale.dropped_after .. "; " .. LootLog_Locale.source .. ": " .. loot_information.source .. ")" or "")
 end
@@ -97,7 +99,7 @@ local update_list = function()
 
         -- filter by item quality
         if item.quality < LootLog_min_quality then discard = true end
-        
+
         -- filter by source
         if LootLog_source and LootLog_source ~= 0 then
             if LootLog_looted_items[sorted_items[key]].source == "loot" and LootLog_source ~= 1 then discard = true end
@@ -124,7 +126,7 @@ local update_list = function()
 
             return true
         end
-        
+
         discard = discard or (LootLog_equippable and not (IsEquippableItem(item.id) and scan_tooltip(scan_frame:GetRegions())))
 
         -- filter by filter list
@@ -226,7 +228,7 @@ local event_addon_loaded = function(_, _, addon)
         if LootLog_invertsorting == nil then
             LootLog_invertsorting = true
         end
-    
+
         if LootLog_equippable == nil then
             LootLog_equippable = false
         end
@@ -314,7 +316,7 @@ local event_addon_loaded = function(_, _, addon)
         -- initialize lists if possible
         if item_cache:loaded() then
             is_loaded = true
-    
+
             update_filter()
             update_list()
         end
@@ -421,7 +423,12 @@ do
     loot_frame.title:SetPoint("TOPLEFT", 5, -5)
     loot_frame.title:SetText(LootLog_Locale.title)
 
-    loot_frame.close = CreateFrame("Button", "LootLogSettingsClose", loot_frame, "UIPanelCloseButton")
+    loot_frame.info = CreateFrame("Button", "LootLogInfo", loot_frame, "UIPanelInfoButton")
+    loot_frame.info:SetPoint("TOPRIGHT", -33, -5)
+    loot_frame.info:SetScript("OnEnter", function(_) info_frame:SetPoint("TOPLEFT", loot_frame.info, "BOTTOMRIGHT", 0, 0) info_frame:Show() end)
+    loot_frame.info:SetScript("OnLeave", function(_) info_frame:Hide() end)
+
+    loot_frame.close = CreateFrame("Button", "LootLogClose", loot_frame, "UIPanelCloseButton")
     loot_frame.close:SetPoint("TOPRIGHT", 0, 2)
     loot_frame.close:SetScript("OnClick", function(_, button) if (button == "LeftButton") then LootLog_frame_visible = false; loot_frame:Hide() end end)
 
@@ -620,6 +627,54 @@ do
 
 
 
+    -- create information frame
+    info_frame:SetFrameStrata("HIGH")
+    info_frame:SetWidth(LootLog_Locale.info_width)
+    info_frame:SetHeight(75)
+
+    info_frame.background = info_frame:CreateTexture()
+    info_frame.background:SetAllPoints(info_frame)
+    info_frame.background:SetColorTexture(0.1, 0.1, 0.1, 0.8)
+
+    local info_font = "GameTooltipTextSmall"
+
+    info_frame.left_mouse_label = info_frame:CreateFontString("LootLogInfoLeftMouse", "OVERLAY", info_font)
+    info_frame.left_mouse_label:SetPoint("TOPLEFT", 10, -10)
+    info_frame.left_mouse_label:SetText(LootLog_Locale.left_mouse)
+
+    info_frame.left_description_label = info_frame:CreateFontString("LootLogInfoLeftDescription", "OVERLAY", info_font)
+    info_frame.left_description_label:SetPoint("TOPLEFT", 80, -10)
+    info_frame.left_description_label:SetText(LootLog_Locale.left_description)
+
+    info_frame.shift_left_mouse_label = info_frame:CreateFontString("LootLogInfoShiftLeftMouse", "OVERLAY", info_font)
+    info_frame.shift_left_mouse_label:SetPoint("TOPLEFT", 10, -25)
+    info_frame.shift_left_mouse_label:SetText(LootLog_Locale.shift .. "+" .. LootLog_Locale.left_mouse)
+
+    info_frame.shift_left_description_label = info_frame:CreateFontString("LootLogInfoShiftLeftDescription", "OVERLAY", info_font)
+    info_frame.shift_left_description_label:SetPoint("TOPLEFT", 80, -25)
+    info_frame.shift_left_description_label:SetText(LootLog_Locale.shift_left_description)
+
+    info_frame.ctrl_left_mouse_label = info_frame:CreateFontString("LootLogInfoCtrlLeftMouse", "OVERLAY", info_font)
+    info_frame.ctrl_left_mouse_label:SetPoint("TOPLEFT", 10, -40)
+    info_frame.ctrl_left_mouse_label:SetText(LootLog_Locale.ctrl .. "+" .. LootLog_Locale.left_mouse)
+
+    info_frame.ctrl_left_description_label = info_frame:CreateFontString("LootLogInfoCtrlLeftDescription", "OVERLAY", info_font)
+    info_frame.ctrl_left_description_label:SetPoint("TOPLEFT", 80, -40)
+    info_frame.ctrl_left_description_label:SetText(LootLog_Locale.ctrl_left_description)
+
+    info_frame.right_mouse_label = info_frame:CreateFontString("LootLogInfoRightMouse", "OVERLAY", info_font)
+    info_frame.right_mouse_label:SetPoint("TOPLEFT", 10, -55)
+    info_frame.right_mouse_label:SetText(LootLog_Locale.right_mouse)
+
+    info_frame.right_description_label = info_frame:CreateFontString("LootLogInfoRightDescription", "OVERLAY", info_font)
+    info_frame.right_description_label:SetPoint("TOPLEFT", 80, -55)
+    info_frame.right_description_label:SetText(LootLog_Locale.rigth_description)
+
+    -- initially hide frame
+    info_frame:Hide()
+
+
+
     -- scripts
     loot_frame.settings:SetScript("OnClick", function(self, ...) if (settings_frame:IsVisible()) then settings_frame:Hide()
         else settings_frame:Show() end;
@@ -630,7 +685,7 @@ do
     scan_frame:AddFontStrings(
         scan_frame:CreateFontString("$parentTextLeft1", nil, "GameTooltipText"),
         scan_frame:CreateFontString("$parentTextRight1", nil, "GameTooltipText"));
-        
+
     event_load_frame:RegisterEvent("ADDON_LOADED")
     event_load_frame:SetScript("OnEvent", event_addon_loaded)
 

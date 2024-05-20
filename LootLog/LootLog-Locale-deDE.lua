@@ -18,4 +18,14 @@ if GetLocale() == "deDE" then
     
     LootLog_Locale.dropped_before = ""
     LootLog_Locale.dropped_after = " mal gefunden"
+    
+    LootLog_Locale.left_mouse = "Links"
+    LootLog_Locale.right_mouse = "Rechts"
+    LootLog_Locale.shift = "Shift"
+    LootLog_Locale.ctrl = "Ctrl"
+    LootLog_Locale.left_description = "Informationen in den Chat schreiben"
+    LootLog_Locale.shift_left_description = "Gegenstand in den offenen Chat kopieren"
+    LootLog_Locale.ctrl_left_description = "Würfel-Fenster für den Gegenstand öffnen"
+    LootLog_Locale.rigth_description = "Gegenstand aus der Liste entfernen"
+    LootLog_Locale.info_width = 315
 end

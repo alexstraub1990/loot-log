@@ -19,3 +19,13 @@ LootLog_Locale.add_item = "Add Item by ID"
 
 LootLog_Locale.dropped_before = "Dropped "
 LootLog_Locale.dropped_after = " times"
+
+LootLog_Locale.left_mouse = "Left"
+LootLog_Locale.right_mouse = "Right"
+LootLog_Locale.shift = "Shift"
+LootLog_Locale.ctrl = "Ctrl"
+LootLog_Locale.left_description = "Print information into chat"
+LootLog_Locale.shift_left_description = "Copy item into the open chat"
+LootLog_Locale.ctrl_left_description = "Open roll window for the item"
+LootLog_Locale.rigth_description = "Remove item from list"
+LootLog_Locale.info_width = 250
