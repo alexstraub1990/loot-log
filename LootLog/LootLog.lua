@@ -12,10 +12,15 @@ local roll_frame = CreateFrame("Frame", "LootLogRoll", UIParent)
 local event_load_frame = CreateFrame("Frame")
 local event_loot_frame = CreateFrame("Frame")
 local event_gargul_frame = CreateFrame("Frame")
+local event_roll_frame = CreateFrame("Frame")
 local scan_frame = CreateFrame("GameTooltip", "LootLogScanTooltip", nil, "GameTooltipTemplate")
 
 -- temporary storage
 local item_cache = ItemCache.new()
+
+local roll_item = nil
+local roll_started = false
+local roll_end_time = 0
 
 local loaded_items = 0
 local is_loaded = false
@@ -71,6 +76,16 @@ local item_to_chat = function(item_id)
         ChatFrameEditBox:Insert(item_cache:get(item_id).link)
     else
         ChatEdit_InsertLink(item_cache:get(item_id).link)
+    end
+end
+
+local announce = function(message)
+    if IsInRaid() then
+        SendChatMessage(message, "RAID_WARNING")
+    elseif IsInGroup() then
+        SendChatMessage(message, "PARTY")
+    else
+        print("Not in a group: (" .. message .. ")")
     end
 end
 
@@ -181,7 +196,11 @@ end
 local event_click_item = function(mouse_key, item_id)
     local handler = {
         ["RightButton"] = function(item_id) LootLog_looted_items[item_id] = nil; update_list() end,
-        ["LeftButton"] = function(item_id) if IsShiftKeyDown() then item_to_chat(item_id) else print(loot_information_text(item_id)) end end
+        ["LeftButton"] = function(item_id)
+            if IsShiftKeyDown() then item_to_chat(item_id)
+            elseif IsControlKeyDown() then roll_item = item_id; roll_frame:Show()
+            else print(loot_information_text(item_id))
+            end end
     }
 
     for item_info, _ in pairs(LootLog_looted_items) do
@@ -202,6 +221,58 @@ local event_click_filter = function(mouse_key, item_id)
         if item_info == item_id then
             handler[mouse_key](item_id)
         end
+    end
+end
+
+-- handle click on an item in the roll window
+local event_click_roll = function(mouse_key, item_id)
+    local handler = {
+        ["LeftButton"] = function(item_id)
+            if IsShiftKeyDown() then item_to_chat(item_id)
+            else print(loot_information_text(item_id))
+            end end
+    }
+
+    for item_info, _ in pairs(LootLog_looted_items) do
+        if item_info == item_id then
+            handler[mouse_key](item_id)
+        end
+    end
+end
+
+local event_roll_timer
+event_roll_timer = function()
+    local rest = roll_end_time - GetTime()
+
+    roll_frame.announce_roll:Disable()
+    roll_frame.duration:Disable()
+
+    if rest > 0.5 then
+        C_Timer.After(1, event_roll_timer)
+    end
+
+    if rest > 0.5 and rest < 3.5 then
+        announce(LootLog_Locale.roll_stop .. " " .. math.floor(rest + 0.5) .. " " .. LootLog_Locale.roll_seconds)
+    end
+
+    if rest <= 0.5 then
+        announce(LootLog_Locale.roll_stopped)
+        roll_started = false
+        roll_frame.announce_roll:Enable()
+        roll_frame.duration:Enable()
+
+        -- sort list
+        local results = roll_frame.results:GetItems()
+
+        table.sort(results, function(a, b)
+            if not (a.main_roll == b.main_roll) then
+                return a.main_roll
+            end
+
+            return a.roll > b.roll
+        end)
+
+        roll_frame.results:SetItems(results)
     end
 end
 
@@ -285,6 +356,11 @@ local event_addon_loaded = function(_, _, addon)
                 function() loaded_items = loaded_items + 1; if loaded_items == needed_items then is_loaded = true; update_filter(); update_list() end end)
         end
 
+        -- roll settings
+        if LootLog_roll_duration == nil then
+            LootLog_roll_duration = 10
+        end
+
         -- minimap button
         if LootLog_minimap == nil then
             LootLog_minimap = {
@@ -324,9 +400,9 @@ local event_addon_loaded = function(_, _, addon)
 end
 
 -- function for parsing loot messages
-local event_looted = function(_, _, text)
+local event_looted = function(_, _, message)
     -- parse item information
-    local _, item_id_start = string.find(text, "|Hitem:")
+    local _, item_id_start = string.find(message, "|Hitem:")
     local text = string.sub(text, item_id_start + 1, -1)
 
     local item_id_end, _ = string.find(text, ":")
@@ -373,6 +449,46 @@ local event_gargul = function(_, _, text)
         else
             LootLog_looted_items[item.id] = loot_information("loot", (LootLog_looted_items[item_id]["amount"] and LootLog_looted_items[item_id].amount or 1) + 1)
             update_list()
+        end
+    end
+end
+
+-- function for parsing system chat messages for rolls
+local event_rolled = function(_, _, text)
+    if roll_started then
+        -- find (1-100) for main rolls, (1-50) for off rolls, and ignore rest
+        if not text or not (string.find(text, "%(1%-100%)") or string.find(text, "%(1%-50%)")) then
+            return
+        end
+
+        local main_roll = true
+
+        if text and string.find(text, "%(1%-50%)") then
+            main_roll = false
+        end
+
+        -- parse message
+        text = text:gsub("%(1%-50%)", "")
+        text = text:gsub("%(1%-100%)", "")
+
+        local first, last = string.find(text, "[0-9][0-9]*[0-9]*")
+        local roll = tonumber(text:sub(first, last))
+
+        local first = string.find(text, " ") - 1
+        local player = text:sub(1, first)
+
+        -- update table
+        local prior_results = roll_frame.results:GetItems()
+        local found = false
+
+        for i, v in ipairs(prior_results) do
+            if v.name == player then
+                found = true
+            end
+        end
+
+        if (not found) then
+            roll_frame.results:AddItem({name = player, roll = roll, main_roll = main_roll})
         end
     end
 end
@@ -464,7 +580,7 @@ do
     settings_frame:SetFrameStrata("HIGH")
     settings_frame:SetWidth(250)
     settings_frame:SetHeight(223 + select(2, filter_frame:GetFrameSize()))
-    settings_frame:SetPoint("CENTER", 150, 0)
+    settings_frame:SetPoint("LEFT", window_width + 10, 0)
     settings_frame:SetMovable(true)
     settings_frame:EnableMouse(true)
     settings_frame:RegisterForDrag("LeftButton")
@@ -675,6 +791,97 @@ do
 
 
 
+    -- create item frame
+    local roll_item_frame = CreateItemFrame("LootLogRollItem", roll_frame, 1, window_width - 10, event_click_roll)
+
+    -- create roll result frame
+    local roll_results_frame = CreateRollFrame("LootLogRollResults", roll_frame, 10, window_width - 10, event_assign_roll)
+
+    -- create roll frame
+    roll_frame:SetFrameStrata("HIGH")
+    roll_frame:SetPoint("RIGHT", -window_width - 10, 0)
+    roll_frame:SetWidth(window_width)
+    roll_frame:SetHeight(315)
+    roll_frame:SetMovable(true)
+    roll_frame:EnableMouse(true)
+    roll_frame:RegisterForDrag("LeftButton")
+    roll_frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    roll_frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    roll_frame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+    roll_frame:SetScript("OnShow", function() roll_frame.field:SetItems({item_cache:get(roll_item)}) roll_frame.duration:SetText(LootLog_roll_duration) end)
+
+    roll_frame.background = roll_frame:CreateTexture()
+    roll_frame.background:SetAllPoints(roll_frame)
+    roll_frame.background:SetColorTexture(0.1, 0.1, 0.1, 0.5)
+
+    roll_frame.title = roll_frame:CreateFontString("LootLogRollTitle", "OVERLAY", "GameFontNormal")
+    roll_frame.title:SetPoint("TOPLEFT", 5, -5)
+    roll_frame.title:SetText(LootLog_Locale.roll_title)
+
+    roll_frame.close = CreateFrame("Button", "LootLogRollClose", roll_frame, "UIPanelCloseButton")
+    roll_frame.close:SetPoint("TOPRIGHT", 0, 2)
+    roll_frame.close:SetScript("OnClick", function(_, button) if (button == "LeftButton") then roll_frame:Hide() end end)
+
+    _G["LootLogRollFrame"] = roll_frame
+    tinsert(UISpecialFrames, "LootLogRollFrame")
+
+    roll_frame.field = roll_item_frame
+    roll_frame.field:SetPoint("TOPLEFT", 5, -25)
+
+    -- roll announcement button
+    roll_frame.announce_roll = CreateButton("LootLogRollAnnouncement", roll_frame, LootLog_Locale.roll_announce_roll, 200, 25, function()
+        -- announcement
+        announce(LootLog_Locale.roll_message .. ": " .. item_cache:get(roll_item).link)
+
+        -- start tracking of rolls
+        roll_frame.results:ClearItems()
+        roll_started = true
+
+        -- event for regular time events
+        roll_end_time = GetTime() + LootLog_roll_duration
+        C_Timer.After(0.01, event_roll_timer)
+        end)
+    roll_frame.announce_roll:SetPoint("TOPLEFT", 2, -50)
+
+    -- roll duration settings
+    roll_frame.duration_label = roll_frame:CreateFontString("LootLogDurationLabel", "OVERLAY", "GameFontHighlight")
+    roll_frame.duration_label:SetPoint("TOPLEFT", 5, -85)
+    roll_frame.duration_label:SetText(LootLog_Locale.roll_duration)
+
+    roll_frame.unit_label = roll_frame:CreateFontString("LootLogUnitLabel", "OVERLAY", "GameFontHighlight")
+    roll_frame.unit_label:SetPoint("TOPRIGHT", -5, -85)
+    roll_frame.unit_label:SetText(LootLog_Locale.roll_seconds)
+
+    roll_frame.duration = CreateFrame("EditBox", "LootLogDuration", roll_frame)
+    roll_frame.duration:SetSize(17, 22)
+    roll_frame.duration:SetPoint("TOPLEFT", 115, -80)
+    roll_frame.duration:SetFontObject(ChatFontNormal)
+    roll_frame.duration:SetAutoFocus(false)
+    roll_frame.duration:SetNumeric(true)
+    roll_frame.duration:SetText(10)
+    roll_frame.duration:SetScript("OnEnterPressed", function(self, ...)
+        if tonumber(roll_frame.duration:GetText()) < 2 then roll_frame.duration:SetText(2) end
+        if tonumber(roll_frame.duration:GetText()) > 30 then roll_frame.duration:SetText(30) end
+        LootLog_roll_duration = tonumber(roll_frame.duration:GetText())
+        roll_frame.duration:ClearFocus() end)
+    roll_frame.duration:SetScript("OnEscapePressed", function(self, ...)
+        roll_frame.duration:SetText(LootLog_roll_duration)
+        roll_frame.duration:ClearFocus() end)
+
+    roll_frame.duration.background = roll_frame.duration:CreateTexture()
+    roll_frame.duration.background:SetAllPoints(roll_frame.duration)
+    roll_frame.duration.background:SetColorTexture(0.5, 0.5, 0.5, 0.5)
+
+    -- list of player rolls
+    roll_frame.results = roll_results_frame
+    roll_frame.results:SetPoint("TOPLEFT", 5, -110)
+    roll_frame.results:ClearItems()
+
+    -- initially hide frame
+    roll_frame:Hide()
+
+
+
     -- scripts
     loot_frame.settings:SetScript("OnClick", function(self, ...) if (settings_frame:IsVisible()) then settings_frame:Hide()
         else settings_frame:Show() end;
@@ -696,6 +903,9 @@ do
     event_gargul_frame:RegisterEvent("CHAT_MSG_RAID_LEADER")
     event_gargul_frame:RegisterEvent("CHAT_MSG_RAID")
     event_gargul_frame:SetScript("OnEvent", event_gargul)
+
+    event_roll_frame:RegisterEvent("CHAT_MSG_SYSTEM")
+    event_roll_frame:SetScript("OnEvent", event_rolled)
 end
 
 -- slash commands

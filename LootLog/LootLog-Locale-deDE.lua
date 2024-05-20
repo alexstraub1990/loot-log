@@ -6,6 +6,14 @@ if GetLocale() == "deDE" then
     LootLog_Locale.clear = "Leeren"
     LootLog_Locale.settings = "Einstellungen"
 
+    LootLog_Locale.roll_title = "Für Gegenstand würfeln"
+    LootLog_Locale.roll_announce_roll = "Würfe starten"
+    LootLog_Locale.roll_duration = "Zeit zum Würfeln:"
+    LootLog_Locale.roll_seconds = "Sekunden"
+    LootLog_Locale.roll_message = "Jetzt für den Gegenstand würfeln (Main: 100, Off: 50)"
+    LootLog_Locale.roll_stop = "Würfeln endet in"
+    LootLog_Locale.roll_stopped = "Würfeln beendet"
+
     LootLog_Locale.source = "Datenquelle"
     LootLog_Locale.sources = {"All", "Loot", "Gargul"}
     LootLog_Locale.min_quality = "Mindestqualität"

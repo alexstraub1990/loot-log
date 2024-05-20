@@ -7,6 +7,14 @@ LootLog_Locale.roll_off = "Roll 50"
 LootLog_Locale.clear = "Clear"
 LootLog_Locale.settings = "Settings"
 
+LootLog_Locale.roll_title = "Roll for item"
+LootLog_Locale.roll_announce_roll = "Start roll"
+LootLog_Locale.roll_duration = "Roll duration:"
+LootLog_Locale.roll_seconds = "seconds"
+LootLog_Locale.roll_message = "Start rolling for item (main: 100, off: 50)"
+LootLog_Locale.roll_stop = "Roll stops in"
+LootLog_Locale.roll_stopped = "Roll stopped"
+
 LootLog_Locale.source = "Source"
 LootLog_Locale.sources = {"All", "Loot", "Gargul"}
 LootLog_Locale.min_quality = "Min. quality"

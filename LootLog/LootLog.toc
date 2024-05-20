@@ -1,15 +1,16 @@
 ## Interface: 40400
 ## Title: Loot Log
 ## Notes: Logs looted items of certain quality in raids.
-## Version: 1.5
+## Version: 1.6
 ## SavedVariables: LootLog_minimap
-## SavedVariablesPerCharacter: LootLog_loot_index, LootLog_filter_index, LootLog_looted_items, LootLog_frame_visible, LootLog_source, LootLog_min_quality, LootLog_invertsorting, LootLog_equippable, LootLog_open_on_loot, LootLog_filter_list, LootLog_use_filter_list
+## SavedVariablesPerCharacter: LootLog_loot_index, LootLog_filter_index, LootLog_looted_items, LootLog_frame_visible, LootLog_source, LootLog_min_quality, LootLog_invertsorting, LootLog_equippable, LootLog_open_on_loot, LootLog_filter_list, LootLog_use_filter_list, LootLog_roll_duration
 
 LibDBIcon-1.0\embeds.xml
 LibDBIcon-1.0\LibDBIcon-1.0\lib.xml
 
 ItemCache.lua
 ItemFrame.lua
+RollFrame.lua
 Button.lua
 
 LootLog-Locale.lua
