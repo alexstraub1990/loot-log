@@ -400,9 +400,9 @@ local event_addon_loaded = function(_, _, addon)
 end
 
 -- function for parsing loot messages
-local event_looted = function(_, _, message)
+local event_looted = function(_, _, text)
     -- parse item information
-    local _, item_id_start = string.find(message, "|Hitem:")
+    local _, item_id_start = string.find(text, "|Hitem:")
     local text = string.sub(text, item_id_start + 1, -1)
 
     local item_id_end, _ = string.find(text, ":")
